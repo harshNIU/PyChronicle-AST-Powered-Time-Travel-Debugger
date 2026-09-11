@@ -1,2 +1,21 @@
-# PyChronicle-AST-Powered-Time-Travel-Debugger
-The Novel Idea: PyChronicle is a "time-travel" execution tracer. Using Python's ast (Abstract Syntax Tree) module and sys.settrace, it wraps an entire application's execution and records the delta state of every variable at every line of code into a fast, in-memory SQLite database.
+# PyChronicle - AST-Powered Time-Travel Debugger
+
+PyChronicle is a Python time-travel execution tracer. It will use Python's `ast` module and `sys.settrace` to record variable-state changes during program execution.
+
+## Planned modules
+
+- `ast_engine/` - AST parsing and non-destructive capture-hook injection.
+- `tracer/` - Runtime execution tracing.
+- `storage/` - In-memory SQLite state storage and delta handling.
+- `tui/` - Terminal user interface.
+- `cli/` - Command-line entry point and integration work.
+
+## Development environment
+
+- Python 3.14 or newer
+- Git and GitHub
+- A local virtual environment named `venv`
+
+## Current status
+
+Day 1 project skeleton complete.
