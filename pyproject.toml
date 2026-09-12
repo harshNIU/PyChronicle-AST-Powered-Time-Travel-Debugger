@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pychronicle"
+version = "0.1.0"
+description = "AST-powered, delta-compressed Python execution recorder"
+requires-python = ">=3.10"
+authors = [{name = "PyChronicle"}]
+
+[project.optional-dependencies]
+tui = ["textual>=0.50"]
+dev = ["pytest>=7"]
+
+[project.scripts]
+pychronicle = "pychronicle.cli:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.setuptools.packages.find]
+include = ["pychronicle*"]
