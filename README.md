@@ -21,7 +21,6 @@ PyChronicle aims to solve this problem by allowing developers to move backward a
 
 ```text
 PyChronicle/
-│
 ├── ast_engine/
 ├── storage/
 ├── tracer/
