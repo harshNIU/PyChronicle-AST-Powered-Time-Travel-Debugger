@@ -1,9 +1,8 @@
-<<<<<<< HEAD
+ HEAD
 venv/
 .venv/
 __pycache__/
 *.py[cod]
-=======
 # Python cache
 __pycache__/
 *.py[cod]
@@ -30,4 +29,4 @@ Thumbs.db
 
 # Local files
 README.local.md
->>>>>>> origin/main
+origin/main
