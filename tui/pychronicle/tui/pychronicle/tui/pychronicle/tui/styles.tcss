@@ -1,0 +1,27 @@
+#code {
+    width: 1fr;
+    height: 1fr;
+    border: solid $accent;
+}
+
+#state {
+    width: 1fr;
+    height: 1fr;
+    border: solid $accent;
+    padding: 1;
+}
+
+#timeline_bar {
+    height: 3;
+    align: center middle;
+    content-align: center middle;
+}
+
+#frame_input {
+    width: 12;
+}
+
+#frame_total {
+    padding: 1 1;
+}
+
