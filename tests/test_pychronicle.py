@@ -67,5 +67,26 @@ def test_tui_launch_import_and_setup(monkeypatch):
 
     tui_module.launch(result.store, Path("test.py"))
     assert mock_run.called
+def test_execution_history_records_variable_changes():
+    code = """
+x = 10
+x = 20
+x = 30
+"""
+
+    result = Chronicle().run_source(code, "history_example.py")
+
+    frames = list(result.store.frames())
+
+    assert len(frames) > 0
+
+    states = [
+        result.store.state_at(frame.id, "<module>")
+        for frame in frames
+    ]
+
+    assert any(state.get("x") == 10 for state in states)
+    assert any(state.get("x") == 20 for state in states)
+    assert any(state.get("x") == 30 for state in states)
 
 
