@@ -1,11 +1,7 @@
- HEAD
-venv/
-.venv/
-__pycache__/
-*.py[cod]
 # Python cache
 __pycache__/
 *.py[cod]
+*.pyo
 
 # Pytest
 .pytest_cache/
@@ -16,17 +12,22 @@ dist/
 build/
 
 # Virtual environments
-.venv/
 venv/
+.venv/
 env/
 
 # IDE
 .vscode/
 
-# OS
+# Operating system files
 .DS_Store
 Thumbs.db
 
 # Local files
 README.local.md
-origin/main
+
+# Environment variables
+.env
+
+# SQLite database
+storage/pychronicle.db
