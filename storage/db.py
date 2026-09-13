@@ -15,3 +15,8 @@ def init_db():
     connection.executescript(schema)
     connection.commit()
     connection.close()
+
+
+def get_connection():
+    """Return a connection to the PyChronicle database."""
+    return sqlite3.connect(DB_PATH)

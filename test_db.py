@@ -1,6 +1,11 @@
-from storage.db import init_db
+from storage.db import init_db, get_connection
 
 
-init_db()
+def test_database_connection():
+    init_db()
 
-print("Database initialized successfully!")
+    connection = get_connection()
+
+    assert connection is not None
+
+    connection.close()
