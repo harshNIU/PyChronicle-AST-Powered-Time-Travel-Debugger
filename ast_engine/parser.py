@@ -12,6 +12,7 @@ class AssignmentInfo:
     """A simplified description of one assignment expression in source code."""
 
     line_number: int
+    column_offset: int
     target: str
     node_type: str
 
@@ -56,10 +57,12 @@ def list_assignments(tree: ast.AST) -> list[AssignmentInfo]:
             assignments.append(
                 AssignmentInfo(
                     line_number=node.lineno,
+                    column_offset=node.col_offset,
                     target=ast.unparse(target_node),
                     node_type=type(node).__name__,
                 )
             )
+            
 
     return sorted(
         assignments,
