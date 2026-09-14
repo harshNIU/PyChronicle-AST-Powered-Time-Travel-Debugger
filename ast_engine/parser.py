@@ -1,4 +1,4 @@
-"""Utilities for parsing Python source files and finding assignment nodes."""
+"""Utilities for parsing Python source files and finding AST boundaries."""
 
 from __future__ import annotations
 
@@ -14,6 +14,15 @@ class AssignmentInfo:
     line_number: int
     target: str
     node_type: str
+
+
+@dataclass(frozen=True)
+class BoundaryInfo:
+    """A simplified description of a function or loop boundary."""
+
+    line_number: int
+    boundary_type: str
+    name: str
 
 
 def parse_file(file_path: str | Path) -> ast.Module:
@@ -41,12 +50,9 @@ def list_assignments(tree: ast.AST) -> list[AssignmentInfo]:
             continue
 
         if isinstance(node, ast.Assign):
-            # Normal assignment: x = 10
-            # ast.Assign stores targets in a list.
             target_nodes = node.targets
 
         elif isinstance(node, (ast.AnnAssign, ast.AugAssign, ast.NamedExpr)):
-            # These assignment types have a single target.
             target_nodes = [node.target]
 
         else:
@@ -64,4 +70,34 @@ def list_assignments(tree: ast.AST) -> list[AssignmentInfo]:
     return sorted(
         assignments,
         key=lambda item: (item.line_number, item.target),
+    )
+
+
+def list_boundaries(tree: ast.AST) -> list[BoundaryInfo]:
+    """Return function and loop boundaries used for hook injection planning."""
+
+    boundaries: list[BoundaryInfo] = []
+
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            boundaries.append(
+                BoundaryInfo(
+                    line_number=node.lineno,
+                    boundary_type="function",
+                    name=node.name,
+                )
+            )
+
+        elif isinstance(node, (ast.For, ast.AsyncFor, ast.While)):
+            boundaries.append(
+                BoundaryInfo(
+                    line_number=node.lineno,
+                    boundary_type="loop",
+                    name=type(node).__name__,
+                )
+            )
+
+    return sorted(
+        boundaries,
+        key=lambda item: (item.line_number, item.boundary_type, item.name),
     )
