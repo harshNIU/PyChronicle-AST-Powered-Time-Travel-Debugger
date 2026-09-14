@@ -3,23 +3,39 @@ import sys
 
 class ExecutionTracer:
     """
-    A basic execution tracer using sys.settrace.
+    Tracks execution history using sys.settrace.
 
-    Records every line executed along with local variable state
-    at that point, so we can eventually browse a 'timeline'
-    of how the program's state changed over time.
+    Day 2 improvements:
+    - Only traces the target file (ignores library/internal calls)
+    - Records only variables that changed since the last line (deltas),
+      instead of the full locals dict every time
     """
 
-    def __init__(self):
+    def __init__(self, target_file=None):
+        self.target_file = target_file
         self.history = []
+        self._last_locals = {}
+
+    def _get_changes(self, current_locals):
+        changes = {}
+        for key, value in current_locals.items():
+            if key not in self._last_locals or self._last_locals[key] != value:
+                changes[key] = value
+        return changes
 
     def trace_calls(self, frame, event, arg):
+        if self.target_file and frame.f_code.co_filename != self.target_file:
+            return None  # skip code outside our target file
+
         if event == "line":
-            self.history.append({
-                "file": frame.f_code.co_filename,
-                "line": frame.f_lineno,
-                "locals": frame.f_locals.copy(),
-            })
+            changes = self._get_changes(frame.f_locals)
+            if changes:
+                self.history.append({
+                    "line": frame.f_lineno,
+                    "changed": changes,
+                })
+                self._last_locals = frame.f_locals.copy()
+
         return self.trace_calls
 
     def start(self):
@@ -29,9 +45,9 @@ class ExecutionTracer:
         sys.settrace(None)
 
     def print_timeline(self):
-        print("\n--- Execution Timeline ---")
+        print("\n--- Execution Timeline (deltas only) ---")
         for i, step in enumerate(self.history):
-            print(f"[{i}] Line {step['line']} | Locals: {step['locals']}")
+            print(f"[{i}] Line {step['line']} | Changed: {step['changed']}")
 
 
 def sample_program():
@@ -42,7 +58,7 @@ def sample_program():
 
 
 if __name__ == "__main__":
-    tracer = ExecutionTracer()
+    tracer = ExecutionTracer(target_file=__file__)
     tracer.start()
 
     sample_program()
