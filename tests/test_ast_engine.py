@@ -2,7 +2,13 @@
 
 import ast
 
-from ast_engine.parser import list_assignments, parse_file
+from ast_engine.parser import (
+    AssignmentInfo,
+    BoundaryInfo,
+    list_assignments,
+    list_boundaries,
+    parse_file,
+)
 
 
 def test_parse_file_returns_module_tree(tmp_path):
@@ -53,4 +59,36 @@ if (matched_score := score) > 0:
         (4, 0, "(left, right)", "Assign"),
         (7, 4, "inner_value", "Assign"),
         (10, 4, "matched_score", "NamedExpr"),
+    ]
+
+
+def test_list_boundaries_finds_functions_and_loops():
+    """The parser should find function and loop boundaries."""
+
+    source = """def calculate():
+    for item in items:
+        while item:
+            item = None
+"""
+
+    tree = ast.parse(source)
+
+    boundaries = list_boundaries(tree)
+
+    assert boundaries == [
+        BoundaryInfo(
+            line_number=1,
+            boundary_type="function",
+            name="calculate",
+        ),
+        BoundaryInfo(
+            line_number=2,
+            boundary_type="loop",
+            name="For",
+        ),
+        BoundaryInfo(
+            line_number=3,
+            boundary_type="loop",
+            name="While",
+        ),
     ]
