@@ -90,3 +90,40 @@ x = 30
     assert any(state.get("x") == 30 for state in states)
 
 
+def test_timeline_navigation():
+    from pychronicle.timeline import Timeline
+
+    result = Chronicle().run_source(
+        "x = 1\nx = 2\nx = 3\n",
+        "timeline_example.py",
+    )
+
+    timeline = Timeline(result.store)
+
+    assert timeline.total > 0
+    assert timeline.position.index == 1
+    assert timeline.current is not None
+
+    first = timeline.current
+
+    timeline.next()
+    assert timeline.current is not None
+
+    timeline.previous()
+    assert timeline.current == first
+
+
+def test_timeline_move_to_and_state():
+    from pychronicle.timeline import Timeline
+
+    result = Chronicle().run_source(
+        "x = 10\nx = 20\n",
+        "timeline_state.py",
+    )
+
+    timeline = Timeline(result.store)
+
+    timeline.move_to(timeline.total)
+
+    assert timeline.current is not None
+    assert timeline.state()["x"] == 20
