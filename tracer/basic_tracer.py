@@ -58,6 +58,8 @@ def sample_program():
 
 
 if __name__ == "__main__":
+    from timeline_store import TimelineStore
+
     tracer = ExecutionTracer(target_file=__file__)
     tracer.start()
 
@@ -65,3 +67,14 @@ if __name__ == "__main__":
 
     tracer.stop()
     tracer.print_timeline()
+
+    store = TimelineStore()
+    store.clear()
+    store.save_history(tracer.history)
+
+    print("\n--- Reloaded from storage ---")
+    for step_index, line_number, changed in store.load_history():
+        print(f"[{step_index}] Line {line_number} | Changed: {changed}")
+
+    store.close()
+    
