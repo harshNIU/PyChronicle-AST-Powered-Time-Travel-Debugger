@@ -67,3 +67,10 @@ class Timeline:
         if frame is None:
             return {}
         return self.store.state_at(frame.id, frame.scope)
+
+    def state_at(self, index: int) -> dict:
+        """Return reconstructed state for a 1-based timeline position."""
+        frame = self.move_to(index)
+        if frame is None:
+            return {}
+        return self.store.state_at(frame.id, frame.scope)
