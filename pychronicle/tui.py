@@ -130,9 +130,18 @@ def launch(store: TraceStore, source_path: Path) -> None:
                 frame.scope,
             )
 
+            source_lines = source_path.read_text(
+                encoding="utf-8"
+            ).splitlines()
+
+            current_line = ""
+            if 1 <= frame.line_number <= len(source_lines):
+                current_line = source_lines[frame.line_number - 1]
+
             state_widget.update(
                 f"Frame: {index} / {total_frames}\n"
                 f"Line: {frame.line_number}\n"
+                f"Code: {current_line}\n"
                 f"Event: {frame.event}\n"
                 f"Scope: {frame.scope}\n\n"
                 f"Variables:\n"
