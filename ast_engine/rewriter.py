@@ -12,6 +12,12 @@ from pychronicle.instrumentation import instrument_source
 Checkpoint = Callable[[int, dict[str, Any]], None]
 
 
+def _default_checkpoint(line: int, values: dict[str, Any]) -> None:
+    """Default checkpoint callback when no callback is provided."""
+
+    return None
+
+
 def rewrite_source(
     source: str,
     filename: str | Path = "<memory>",
@@ -51,11 +57,7 @@ def execute_source(
         execution_namespace.update(namespace)
 
     if checkpoint is None:
-
-        def checkpoint(line: int, values: dict[str, Any]) -> None:
-            """Default checkpoint callback when no callback is provided."""
-
-            return None
+        checkpoint = _default_checkpoint
 
     execution_namespace["__pychronicle_checkpoint__"] = checkpoint
 
