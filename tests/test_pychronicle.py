@@ -3,17 +3,32 @@ from pychronicle.instrumentation import find_assignments
 
 
 def test_assignment_analysis_finds_loop_and_augmented_values():
-    found = find_assignments("total = 0\nfor item in range(3):\n    total += item\n")
+    found = find_assignments(
+        "total = 0\nfor item in range(3):\n    total += item\n"
+    )
+
     assert [(entry.kind, entry.names) for entry in found] == [
-        ("assign", ("total",)), ("loop", ("item",)), ("augmented", ("total",))
+        ("assign", ("total",)),
+        ("loop", ("item",)),
+        ("augmented", ("total",)),
     ]
 
 
 def test_delta_trace_replays_loop_history():
-    result = Chronicle().run_source("total = 0\nfor item in range(4):\n    total += item\n", "loop_example.py")
+    result = Chronicle().run_source(
+        "total = 0\nfor item in range(4):\n    total += item\n",
+        "loop_example.py",
+    )
+
     frames = list(result.store.frames())
+
     assert result.store.frame_count() >= 5
-    final_state = result.store.state_at(frames[-1].id, "<module>")
+
+    final_state = result.store.state_at(
+        frames[-1].id,
+        "<module>",
+    )
+
     assert final_state["total"] == 6
     assert len(result.store.changes_for("total")) == 4
 
@@ -26,47 +41,89 @@ def compute(x):
 
 res = compute(5)
 """
-    result = Chronicle().run_source(code, "func_example.py")
+
+    result = Chronicle().run_source(
+        code,
+        "func_example.py",
+    )
+
     frames = list(result.store.frames())
+
     assert result.store.frame_count() > 0
-    # Search for frames with compute scope
-    func_frames = [f for f in frames if f.scope.startswith("compute")]
+
+    func_frames = [
+        frame
+        for frame in frames
+        if frame.scope.startswith("compute")
+    ]
+
     assert len(func_frames) > 0
-    func_state = result.store.state_at(func_frames[-1].id, "compute")
+
+    func_state = result.store.state_at(
+        func_frames[-1].id,
+        "compute",
+    )
+
     assert func_state["x"] == 5
     assert func_state["y"] == 10
 
 
 def test_file_persistence_and_store_reopen(tmp_path):
     db_file = tmp_path / "trace.sqlite"
+
     chronicle = Chronicle(database=db_file)
-    chronicle.run_source("a = 10\na += 5\n", "test.py")
+
+    chronicle.run_source(
+        "a = 10\na += 5\n",
+        "test.py",
+    )
+
     chronicle.store.close()
 
-    # Re-open TraceStore from file
     from pychronicle.storage import TraceStore
+
     reopened = TraceStore(db_file)
+
     assert reopened.frame_count() > 0
+
     last_frame = list(reopened.frames())[-1]
-    state = reopened.state_at(last_frame.id, "<module>")
+
+    state = reopened.state_at(
+        last_frame.id,
+        "<module>",
+    )
+
     assert state["a"] == 15
+
     reopened.close()
 
 
 def test_tui_launch_import_and_setup(monkeypatch):
-    from unittest.mock import MagicMock
-    import pychronicle.tui as tui_module
-    from pychronicle.engine import Chronicle
     from pathlib import Path
+    from unittest.mock import MagicMock
 
-    result = Chronicle().run_source("a = 1", "test.py")
+    import pychronicle.tui as tui_module
 
-    # Mock App.run so it doesn't open interactive TUI terminal during test suite execution
+    result = Chronicle().run_source(
+        "a = 1",
+        "test.py",
+    )
+
     mock_run = MagicMock()
-    monkeypatch.setattr("textual.app.App.run", mock_run)
 
-    tui_module.launch(result.store, Path("test.py"))
+    monkeypatch.setattr(
+        "textual.app.App.run",
+        mock_run,
+    )
+
+    tui_module.launch(
+        result.store,
+        Path("test.py"),
+    )
+
     assert mock_run.called
+
+
 def test_execution_history_records_variable_changes():
     code = """
 x = 10
@@ -74,20 +131,37 @@ x = 20
 x = 30
 """
 
-    result = Chronicle().run_source(code, "history_example.py")
+    result = Chronicle().run_source(
+        code,
+        "history_example.py",
+    )
 
     frames = list(result.store.frames())
 
     assert len(frames) > 0
 
     states = [
-        result.store.state_at(frame.id, "<module>")
+        result.store.state_at(
+            frame.id,
+            "<module>",
+        )
         for frame in frames
     ]
 
-    assert any(state.get("x") == 10 for state in states)
-    assert any(state.get("x") == 20 for state in states)
-    assert any(state.get("x") == 30 for state in states)
+    assert any(
+        state.get("x") == 10
+        for state in states
+    )
+
+    assert any(
+        state.get("x") == 20
+        for state in states
+    )
+
+    assert any(
+        state.get("x") == 30
+        for state in states
+    )
 
 
 def test_timeline_navigation():
@@ -107,9 +181,11 @@ def test_timeline_navigation():
     first = timeline.current
 
     timeline.next()
+
     assert timeline.current is not None
 
     timeline.previous()
+
     assert timeline.current == first
 
 
@@ -127,3 +203,198 @@ def test_timeline_move_to_and_state():
 
     assert timeline.current is not None
     assert timeline.state()["x"] == 20
+
+
+def test_frames_can_filter_by_scope_and_event():
+    result = Chronicle().run_source(
+        """
+x = 10
+x = 20
+x = 30
+""",
+        "filter_example.py",
+    )
+
+    all_frames = list(result.store.frames())
+
+    assert len(all_frames) > 0
+
+    first_scope = all_frames[0].scope
+    first_event = all_frames[0].event
+
+    scope_frames = list(
+        result.store.frames(
+            scope=first_scope,
+        )
+    )
+
+    event_frames = list(
+        result.store.frames(
+            event=first_event,
+        )
+    )
+
+    assert len(scope_frames) > 0
+    assert len(event_frames) > 0
+
+    assert all(
+        frame.scope == first_scope
+        for frame in scope_frames
+    )
+
+    assert all(
+        frame.event == first_event
+        for frame in event_frames
+    )
+
+
+def test_frames_can_filter_by_scope_and_event_together():
+    result = Chronicle().run_source(
+        """
+x = 10
+x = 20
+x = 30
+""",
+        "combined_filter_example.py",
+    )
+
+    all_frames = list(result.store.frames())
+
+    assert len(all_frames) > 0
+
+    first_scope = all_frames[0].scope
+    first_event = all_frames[0].event
+
+    filtered_frames = list(
+        result.store.frames(
+            scope=first_scope,
+            event=first_event,
+        )
+    )
+
+    assert len(filtered_frames) > 0
+
+    assert all(
+        frame.scope == first_scope
+        for frame in filtered_frames
+    )
+
+    assert all(
+        frame.event == first_event
+        for frame in filtered_frames
+    )
+
+
+def test_timeline_can_filter_by_scope():
+    from pychronicle.timeline import Timeline
+
+    result = Chronicle().run_source(
+        """
+x = 10
+x = 20
+x = 30
+""",
+        "timeline_scope_filter.py",
+    )
+
+    all_frames = list(result.store.frames())
+
+    assert len(all_frames) > 0
+
+    scope = all_frames[0].scope
+
+    timeline = Timeline(
+        result.store,
+        scope=scope,
+    )
+
+    assert timeline.total > 0
+
+    assert all(
+        frame.scope == scope
+        for frame in timeline._frames
+    )
+
+
+def test_timeline_can_filter_by_event():
+    from pychronicle.timeline import Timeline
+
+    result = Chronicle().run_source(
+        """
+x = 10
+x = 20
+x = 30
+""",
+        "timeline_event_filter.py",
+    )
+
+    all_frames = list(result.store.frames())
+
+    assert len(all_frames) > 0
+
+    event = all_frames[0].event
+
+    timeline = Timeline(
+        result.store,
+        event=event,
+    )
+
+    assert timeline.total > 0
+
+    assert all(
+        frame.event == event
+        for frame in timeline._frames
+    )
+
+
+def test_timeline_can_filter_by_scope_and_event():
+    from pychronicle.timeline import Timeline
+
+    result = Chronicle().run_source(
+        """
+x = 10
+x = 20
+x = 30
+""",
+        "timeline_combined_filter.py",
+    )
+
+    all_frames = list(result.store.frames())
+
+    assert len(all_frames) > 0
+
+    scope = all_frames[0].scope
+    event = all_frames[0].event
+
+    timeline = Timeline(
+        result.store,
+        scope=scope,
+        event=event,
+    )
+
+    assert timeline.total > 0
+
+    assert all(
+        frame.scope == scope
+        and frame.event == event
+        for frame in timeline._frames
+    )
+
+
+def test_timeline_filter_with_no_matches_is_empty():
+    from pychronicle.timeline import Timeline
+
+    result = Chronicle().run_source(
+        "x = 10\n",
+        "timeline_empty_filter.py",
+    )
+
+    timeline = Timeline(
+        result.store,
+        scope="nonexistent-scope",
+    )
+
+    assert timeline.total == 0
+    assert timeline.current is None
+    assert timeline.position.index == 0
+    assert timeline.position.total == 0
