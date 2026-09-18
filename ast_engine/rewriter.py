@@ -50,8 +50,14 @@ def execute_source(
     if namespace is not None:
         execution_namespace.update(namespace)
 
-    if checkpoint is not None:
-        execution_namespace["__pychronicle_checkpoint__"] = checkpoint
+    if checkpoint is None:
+
+        def checkpoint(line: int, values: dict[str, Any]) -> None:
+            """Default checkpoint callback when no callback is provided."""
+
+            return None
+
+    execution_namespace["__pychronicle_checkpoint__"] = checkpoint
 
     exec(code, execution_namespace, execution_namespace)
 
