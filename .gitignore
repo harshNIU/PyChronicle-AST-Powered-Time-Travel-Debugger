@@ -31,5 +31,6 @@ README.local.md
 
 # SQLite database
 storage/pychronicle.db
+storage/benchmark.db
 # Local SQLite database
 timeline.db
