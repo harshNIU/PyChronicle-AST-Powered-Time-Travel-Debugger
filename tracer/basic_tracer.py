@@ -1,6 +1,5 @@
 import sys
 
-
 class ExecutionTracer:
     """
     Tracks execution history using sys.settrace.
@@ -107,12 +106,21 @@ if __name__ == "__main__":
     tracer.stop()
     tracer.print_timeline()
 
-    # Storage currently only understands "line" steps, so filter
-    # call/return events out before saving (Day 5 could extend the
-    # schema to store all event types)
-    line_only_history = [step for step in tracer.history if step["type"] == "line"]
-
     store = TimelineStore()
     store.clear()
-    store.save_history(line_only_history)
+    store.save_history(tracer.history)  # now saves ALL event types
+
+    print("\n--- Reloaded from storage ---")
+    for (step_index, event_type, function_name, depth,
+         line_number, changed_vars, return_value) in store.load_history():
+
+        indent = "    " * max((depth or 1) - 1, 0)
+
+        if event_type == "call":
+            print(f"[{step_index}] {indent}-> Entering {function_name}() at line {line_number}")
+        elif event_type == "return":
+            print(f"[{step_index}] {indent}<- Exiting {function_name}() at line {line_number} -> returned {return_value}")
+        else:
+            print(f"[{step_index}] {indent}Line {line_number} ({function_name}) | Changed: {changed_vars}")
+
     store.close()

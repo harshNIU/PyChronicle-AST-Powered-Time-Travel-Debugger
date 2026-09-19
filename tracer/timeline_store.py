@@ -5,6 +5,12 @@ class TimelineStore:
     """
     Persists execution history to a SQLite database so that
     a program's timeline can be inspected after it finishes running.
+
+    Day 5 improvements:
+    - Schema now supports all event types (call, line, return),
+      not just line changes
+    - Stores function name and call depth for every step, so the
+      full call stack can be reconstructed from storage alone
     """
 
     def __init__(self, db_path="timeline.db"):
@@ -16,8 +22,12 @@ class TimelineStore:
             CREATE TABLE IF NOT EXISTS execution_steps (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 step_index INTEGER,
+                event_type TEXT,
+                function_name TEXT,
+                depth INTEGER,
                 line_number INTEGER,
-                changed_vars TEXT
+                changed_vars TEXT,
+                return_value TEXT
             )
         """)
         self.conn.commit()
@@ -25,14 +35,31 @@ class TimelineStore:
     def save_history(self, history):
         for i, step in enumerate(history):
             self.conn.execute(
-                "INSERT INTO execution_steps (step_index, line_number, changed_vars) VALUES (?, ?, ?)",
-                (i, step["line"], str(step["changed"]))
+                """
+                INSERT INTO execution_steps
+                    (step_index, event_type, function_name, depth, line_number, changed_vars, return_value)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    i,
+                    step.get("type"),
+                    step.get("function"),
+                    step.get("depth"),
+                    step.get("line"),
+                    str(step["changed"]) if "changed" in step else None,
+                    str(step["value"]) if "value" in step else None,
+                )
             )
         self.conn.commit()
 
     def load_history(self):
         cursor = self.conn.execute(
-            "SELECT step_index, line_number, changed_vars FROM execution_steps ORDER BY step_index"
+            """
+            SELECT step_index, event_type, function_name, depth,
+                   line_number, changed_vars, return_value
+            FROM execution_steps
+            ORDER BY step_index
+            """
         )
         return cursor.fetchall()
 
