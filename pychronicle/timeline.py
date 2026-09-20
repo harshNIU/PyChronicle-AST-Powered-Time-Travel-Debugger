@@ -1,4 +1,4 @@
-"""Timeline navigation and filtering over captured execution frames."""
+"""Timeline navigation, filtering, and source context."""
 
 from __future__ import annotations
 
@@ -13,6 +13,16 @@ class TimelinePosition:
 
     index: int
     total: int
+
+
+@dataclass(frozen=True)
+class TimelineContext:
+    """Source-related context for the current execution frame."""
+
+    frame_id: int
+    line_number: int
+    event: str
+    scope: str
 
 
 class Timeline:
@@ -38,6 +48,7 @@ class Timeline:
     @property
     def total(self) -> int:
         """Return the number of frames in the current timeline."""
+
         return len(self._frames)
 
     @property
@@ -60,6 +71,22 @@ class Timeline:
             return None
 
         return self._frames[self._index]
+
+    @property
+    def context(self) -> TimelineContext | None:
+        """Return source context for the current frame."""
+
+        frame = self.current
+
+        if frame is None:
+            return None
+
+        return TimelineContext(
+            frame_id=frame.id,
+            line_number=frame.line_number,
+            event=frame.event,
+            scope=frame.scope,
+        )
 
     def next(self) -> Frame | None:
         """Move to the next frame."""
