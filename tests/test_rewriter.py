@@ -64,3 +64,38 @@ score += 5
     assert target.read_text(encoding="utf-8") == source
     assert checkpoints
     assert Path(target).exists()
+
+
+def test_rewrite_source_rejects_non_string_source():
+    """The rewriter should reject source values that are not strings."""
+
+    try:
+        rewrite_source(123)
+    except TypeError as error:
+        assert str(error) == "source must be a string"
+    else:
+        raise AssertionError("rewrite_source should reject non-string source")
+
+
+def test_rewrite_source_accepts_path_filename(tmp_path):
+    """The rewriter should accept a Path object as the filename."""
+
+    target = tmp_path / "sample.py"
+
+    tree = rewrite_source(
+        "score = 10\n",
+        filename=target,
+    )
+
+    assert tree is not None
+    assert hasattr(tree, "body")
+
+
+def test_execute_source_works_without_custom_checkpoint():
+    """The rewriter should use its default checkpoint when none is provided."""
+
+    namespace = execute_source(
+        "score = 10\nscore += 5\n",
+    )
+
+    assert namespace["score"] == 15
