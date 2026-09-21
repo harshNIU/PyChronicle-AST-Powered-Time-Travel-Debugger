@@ -99,3 +99,27 @@ def test_execute_source_works_without_custom_checkpoint():
     )
 
     assert namespace["score"] == 15
+
+
+def test_execute_source_checkpoint_captures_updated_values():
+    """The rewriter should capture the updated value at each assignment."""
+
+    source = """score = 10
+score += 5
+"""
+
+    checkpoints = []
+
+    def checkpoint(line, values):
+        checkpoints.append((line, dict(values)))
+
+    execute_source(
+        source,
+        checkpoint=checkpoint,
+    )
+
+    assert checkpoints[0][0] == 1
+    assert checkpoints[0][1]["score"] == 10
+
+    assert checkpoints[1][0] == 2
+    assert checkpoints[1][1]["score"] == 15
