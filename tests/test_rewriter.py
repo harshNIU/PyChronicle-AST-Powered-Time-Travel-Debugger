@@ -147,3 +147,26 @@ else:
 
     assert namespace["score"] == 20
     assert checkpoints[-1][1]["score"] == 20
+
+
+def test_execute_source_captures_for_loop_values():
+    """The rewriter should capture values while executing a for loop."""
+
+    source = """total = 0
+for number in range(3):
+    total += number
+"""
+
+    checkpoints = []
+
+    def checkpoint(line, values):
+        checkpoints.append((line, dict(values)))
+
+    namespace = execute_source(
+        source,
+        checkpoint=checkpoint,
+    )
+
+    assert namespace["total"] == 3
+    assert checkpoints
+    assert checkpoints[-1][1]["total"] == 3
