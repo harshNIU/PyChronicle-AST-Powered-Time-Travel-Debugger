@@ -123,3 +123,27 @@ score += 5
 
     assert checkpoints[1][0] == 2
     assert checkpoints[1][1]["score"] == 15
+
+
+def test_execute_source_captures_if_else_values():
+    """The rewriter should capture values from an if/else conditional."""
+
+    source = """score = 10
+if score > 5:
+    score = 20
+else:
+    score = 0
+"""
+
+    checkpoints = []
+
+    def checkpoint(line, values):
+        checkpoints.append((line, dict(values)))
+
+    namespace = execute_source(
+        source,
+        checkpoint=checkpoint,
+    )
+
+    assert namespace["score"] == 20
+    assert checkpoints[-1][1]["score"] == 20
