@@ -398,3 +398,67 @@ def test_timeline_filter_with_no_matches_is_empty():
     assert timeline.current is None
     assert timeline.position.index == 0
     assert timeline.position.total == 0
+
+
+def test_timeline_context_returns_current_frame_details():
+    from pychronicle.timeline import Timeline
+
+    result = Chronicle().run_source(
+        "x = 10\nx = 20\n",
+        "timeline_context.py",
+    )
+
+    timeline = Timeline(result.store)
+
+    frame = timeline.current
+    context = timeline.context
+
+    assert frame is not None
+    assert context is not None
+
+    assert context.frame_id == frame.id
+    assert context.line_number == frame.line_number
+    assert context.event == frame.event
+    assert context.scope == frame.scope
+
+
+def test_timeline_context_updates_after_navigation():
+    from pychronicle.timeline import Timeline
+
+    result = Chronicle().run_source(
+        "x = 10\nx = 20\nx = 30\n",
+        "timeline_context_navigation.py",
+    )
+
+    timeline = Timeline(result.store)
+
+    first_context = timeline.context
+
+    assert first_context is not None
+
+    timeline.next()
+
+    second_context = timeline.context
+
+    assert second_context is not None
+    assert second_context.frame_id == timeline.current.id
+    assert second_context.line_number == timeline.current.line_number
+    assert second_context.event == timeline.current.event
+    assert second_context.scope == timeline.current.scope
+
+
+def test_empty_timeline_has_no_context():
+    from pychronicle.timeline import Timeline
+
+    result = Chronicle().run_source(
+        "x = 10\n",
+        "timeline_empty_context.py",
+    )
+
+    timeline = Timeline(
+        result.store,
+        scope="nonexistent-scope",
+    )
+
+    assert timeline.total == 0
+    assert timeline.context is None
