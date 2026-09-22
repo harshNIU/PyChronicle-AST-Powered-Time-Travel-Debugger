@@ -6,7 +6,7 @@ DB_PATH = Path(__file__).parent / "pychronicle.db"
 SCHEMA_PATH = Path(__file__).parent / "schema.sql"
 
 
-def init_db():
+def init_db() -> None:
     """Create the database tables if they do not exist."""
     connection = sqlite3.connect(DB_PATH)
 
@@ -18,12 +18,17 @@ def init_db():
     connection.close()
 
 
-def get_connection():
+def get_connection() -> sqlite3.Connection:
     """Return a connection to the PyChronicle database."""
     return sqlite3.connect(DB_PATH)
 
 
-def save_event(timestamp, line_number, variable_name, serialized_value):
+def save_event(
+    timestamp: float,
+    line_number: int,
+    variable_name: str,
+    serialized_value: str,
+) -> None:
     """Save one variable event to the database."""
     connection = get_connection()
 
@@ -44,7 +49,7 @@ def save_event(timestamp, line_number, variable_name, serialized_value):
     connection.close()
 
 
-def get_events():
+def get_events() -> list[tuple]:
     """Return all stored events."""
     connection = get_connection()
 
@@ -62,7 +67,7 @@ def get_events():
     return events
 
 
-def clear_events():
+def clear_events() -> None:
     """Delete all stored events."""
     connection = get_connection()
     connection.execute("DELETE FROM events")
