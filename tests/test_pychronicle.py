@@ -462,3 +462,57 @@ def test_empty_timeline_has_no_context():
 
     assert timeline.total == 0
     assert timeline.context is None
+    
+def test_timeline_context_returns_current_frame_metadata():
+    from pychronicle.timeline import Timeline
+
+    result = Chronicle().run_source(
+        "x = 10\nx = 20\n",
+        "context_example.py",
+    )
+
+    timeline = Timeline(result.store)
+
+    context = timeline.context
+
+    assert context is not None
+    assert context.frame_id == timeline.current.id
+    assert context.line_number == timeline.current.line_number
+    assert context.event == timeline.current.event
+    assert context.scope == timeline.current.scope
+
+
+def test_timeline_context_updates_after_navigation():
+    from pychronicle.timeline import Timeline
+
+    result = Chronicle().run_source(
+        "x = 10\nx = 20\nx = 30\n",
+        "context_navigation.py",
+    )
+
+    timeline = Timeline(result.store)
+
+    first_context = timeline.context
+
+    timeline.next()
+
+    second_context = timeline.context
+
+    assert first_context is not None
+    assert second_context is not None
+    assert second_context.frame_id == timeline.current.id
+    assert second_context.frame_id != first_context.frame_id
+
+
+def test_empty_timeline_has_no_context():
+    from pychronicle.timeline import Timeline
+    from pychronicle.storage import TraceStore
+
+    store = TraceStore()
+    timeline = Timeline(store)
+
+    assert timeline.total == 0
+    assert timeline.current is None
+    assert timeline.context is None
+
+    store.close()
