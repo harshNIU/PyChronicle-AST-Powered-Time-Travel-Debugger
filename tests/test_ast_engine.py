@@ -225,3 +225,33 @@ score += 5
     assert target.read_text(encoding="utf-8") == source
     assert checkpoints
     assert target.exists()
+
+
+def test_list_assignments_finds_nested_function_assignments(tmp_path):
+    """The parser should find assignments inside nested functions."""
+
+    target_file = tmp_path / "nested_function.py"
+
+    target_file.write_text(
+        """def outer():
+    outer_value = 10
+
+    def inner():
+        inner_value = outer_value + 5
+        return inner_value
+
+    return inner()
+""",
+        encoding="utf-8",
+    )
+
+    tree = parse_file(target_file)
+    assignments = list_assignments(tree)
+
+    assert [
+        (item.line_number, item.target, item.node_type)
+        for item in assignments
+    ] == [
+        (2, "outer_value", "Assign"),
+        (5, "inner_value", "Assign"),
+    ]
