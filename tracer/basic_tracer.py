@@ -1,15 +1,15 @@
 import sys
 
+
 class ExecutionTracer:
     """
     Tracks execution history using sys.settrace.
 
-    Day 4 improvements:
-    - Tracks function calls and returns, not just line events
-    - Records call stack depth, so nested function calls show up
-      as indentation in the timeline
-    - Gives the timeline a real "story": entering/exiting functions,
-      not just a flat list of lines
+    Day 6 improvements:
+    - Tracks exceptions as they occur during execution, not just
+      calls/lines/returns
+    - Records the exception type and message at the point it occurred,
+      so the timeline shows exactly where things went wrong
     """
 
     def __init__(self, target_file=None):
@@ -53,6 +53,17 @@ class ExecutionTracer:
                 })
                 self._last_locals = frame.f_locals.copy()
 
+        elif event == "exception":
+            exc_type, exc_value, _ = arg
+            self.history.append({
+                "type": "exception",
+                "function": func_name,
+                "depth": len(self.call_stack),
+                "line": frame.f_lineno,
+                "exception_type": exc_type.__name__,
+                "exception_message": str(exc_value),
+            })
+
         elif event == "return":
             self.history.append({
                 "type": "return",
@@ -81,6 +92,9 @@ class ExecutionTracer:
                 print(f"[{i}] {indent}-> Entering {step['function']}() at line {step['line']}")
             elif step["type"] == "return":
                 print(f"[{i}] {indent}<- Exiting {step['function']}() at line {step['line']} -> returned {step['value']}")
+            elif step["type"] == "exception":
+                print(f"[{i}] {indent}!! Exception in {step['function']}() at line {step['line']}: "
+                      f"{step['exception_type']}: {step['exception_message']}")
             else:
                 print(f"[{i}] {indent}Line {step['line']} ({step['function']}) | Changed: {step['changed']}")
 
@@ -90,8 +104,19 @@ def add_numbers(a, b):
     return result
 
 
+def divide_numbers(a, b):
+    result = a / b
+    return result
+
+
 def sample_program():
     total = add_numbers(2, 3)
+
+    try:
+        divide_numbers(total, 0)
+    except ZeroDivisionError:
+        pass
+
     return total
 
 
@@ -106,21 +131,11 @@ if __name__ == "__main__":
     tracer.stop()
     tracer.print_timeline()
 
+    # Storage schema doesn't support "exception" steps yet,
+    # so filter those out before saving (this is Day 7's job)
+    storable_history = [step for step in tracer.history if step["type"] != "exception"]
+
     store = TimelineStore()
     store.clear()
-    store.save_history(tracer.history)  # now saves ALL event types
-
-    print("\n--- Reloaded from storage ---")
-    for (step_index, event_type, function_name, depth,
-         line_number, changed_vars, return_value) in store.load_history():
-
-        indent = "    " * max((depth or 1) - 1, 0)
-
-        if event_type == "call":
-            print(f"[{step_index}] {indent}-> Entering {function_name}() at line {line_number}")
-        elif event_type == "return":
-            print(f"[{step_index}] {indent}<- Exiting {function_name}() at line {line_number} -> returned {return_value}")
-        else:
-            print(f"[{step_index}] {indent}Line {line_number} ({function_name}) | Changed: {changed_vars}")
-
+    store.save_history(storable_history)
     store.close()
