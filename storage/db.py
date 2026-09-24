@@ -8,15 +8,11 @@ SCHEMA_PATH = Path(__file__).parent / "schema.sql"
 
 def init_db() -> None:
     """Create the database tables if they do not exist."""
-    connection = sqlite3.connect(DB_PATH)
+    with sqlite3.connect(DB_PATH) as connection:
+        with open(SCHEMA_PATH, "r") as schema_file:
+            schema = schema_file.read()
 
-    with open(SCHEMA_PATH, "r") as schema_file:
-        schema = schema_file.read()
-
-    connection.executescript(schema)
-    connection.commit()
-    connection.close()
-
+        connection.executescript(schema)
 
 def get_connection() -> sqlite3.Connection:
     """Return a connection to the PyChronicle database."""
@@ -30,46 +26,36 @@ def save_event(
     serialized_value: str,
 ) -> None:
     """Save one variable event to the database."""
-    connection = get_connection()
-
-    connection.execute(
-        """
-        INSERT INTO events (
-            timestamp,
-            line_number,
-            variable_name,
-            serialized_value
+    with get_connection() as connection:
+        connection.execute(
+            """
+            INSERT INTO events (
+                timestamp,
+                line_number,
+                variable_name,
+                serialized_value
+            )
+            VALUES (?, ?, ?, ?)
+            """,
+            (timestamp, line_number, variable_name, serialized_value),
         )
-        VALUES (?, ?, ?, ?)
-        """,
-        (timestamp, line_number, variable_name, serialized_value),
-    )
-
-    connection.commit()
-    connection.close()
 
 
 def get_events() -> list[tuple]:
     """Return all stored events."""
-    connection = get_connection()
+    with get_connection() as connection:
+        cursor = connection.execute(
+            """
+            SELECT id, timestamp, line_number, variable_name, serialized_value
+            FROM events
+            ORDER BY id
+            """
+        )
 
-    cursor = connection.execute(
-        """
-        SELECT id, timestamp, line_number, variable_name, serialized_value
-        FROM events
-        ORDER BY id
-        """
-    )
-
-    events = cursor.fetchall()
-    connection.close()
-
-    return events
+        return cursor.fetchall()
 
 
 def clear_events() -> None:
     """Delete all stored events."""
-    connection = get_connection()
-    connection.execute("DELETE FROM events")
-    connection.commit()
-    connection.close()
+    with get_connection() as connection:
+        connection.execute("DELETE FROM events")

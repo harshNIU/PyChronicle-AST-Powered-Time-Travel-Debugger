@@ -64,3 +64,12 @@ def test_multiple_events_are_stored_in_order():
     assert events[2][3] == "x"
 
     clear_events()
+
+
+def test_init_db_can_be_called_multiple_times():
+    init_db()
+    init_db()
+
+    events = get_events()
+
+    assert isinstance(events, list)
