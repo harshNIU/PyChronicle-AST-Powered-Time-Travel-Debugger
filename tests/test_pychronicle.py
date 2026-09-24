@@ -1,3 +1,7 @@
+import json
+import sys
+
+from pychronicle.cli import main
 from pychronicle.engine import Chronicle
 from pychronicle.instrumentation import find_assignments
 
@@ -462,3 +466,244 @@ def test_empty_timeline_has_no_context():
 
     assert timeline.total == 0
     assert timeline.context is None
+
+
+def test_timeline_context_returns_current_frame_metadata():
+    from pychronicle.timeline import Timeline
+
+    result = Chronicle().run_source(
+        "x = 10\nx = 20\n",
+        "context_example.py",
+    )
+
+    timeline = Timeline(result.store)
+
+    context = timeline.context
+
+    assert context is not None
+    assert context.frame_id == timeline.current.id
+    assert context.line_number == timeline.current.line_number
+    assert context.event == timeline.current.event
+    assert context.scope == timeline.current.scope
+
+
+def test_timeline_context_updates_after_navigation():
+    from pychronicle.timeline import Timeline
+
+    result = Chronicle().run_source(
+        "x = 10\nx = 20\nx = 30\n",
+        "context_navigation.py",
+    )
+
+    timeline = Timeline(result.store)
+
+    first_context = timeline.context
+
+    timeline.next()
+
+    second_context = timeline.context
+
+    assert first_context is not None
+    assert second_context is not None
+    assert second_context.frame_id == timeline.current.id
+    assert second_context.frame_id != first_context.frame_id
+
+
+def test_empty_timeline_has_no_context():
+    from pychronicle.timeline import Timeline
+    from pychronicle.storage import TraceStore
+
+    store = TraceStore()
+    timeline = Timeline(store)
+
+    assert timeline.total == 0
+    assert timeline.current is None
+    assert timeline.context is None
+
+    store.close()
+
+
+def test_cli_run_creates_persistent_trace(tmp_path, monkeypatch, capsys):
+    """CLI run should execute a Python file and persist its trace."""
+    script = tmp_path / "example.py"
+    database = tmp_path / "trace.sqlite"
+
+    script.write_text(
+        "x = 10\n"
+        "x = 20\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "pychronicle",
+            "run",
+            str(script),
+            "--db",
+            str(database),
+        ],
+    )
+
+    main()
+
+    output = capsys.readouterr().out
+
+    assert "Recorded" in output
+    assert "delta frames" in output
+    assert database.exists()
+
+    from pychronicle.storage import TraceStore
+
+    store = TraceStore(database)
+
+    assert store.frame_count() > 0
+
+    last_frame = list(store.frames())[-1]
+
+    state = store.state_at(
+        last_frame.id,
+        "<module>",
+    )
+
+    assert state["x"] == 20
+
+    store.close()
+
+
+def test_cli_inspect_reconstructs_requested_frame(
+    tmp_path,
+    monkeypatch,
+    capsys,
+):
+    """CLI inspect should print reconstructed state for a frame."""
+    script = tmp_path / "inspect_example.py"
+    database = tmp_path / "inspect.sqlite"
+
+    script.write_text(
+        "value = 10\n"
+        "value = 25\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "pychronicle",
+            "run",
+            str(script),
+            "--db",
+            str(database),
+        ],
+    )
+
+    main()
+
+    capsys.readouterr()
+
+    from pychronicle.storage import TraceStore
+
+    store = TraceStore(database)
+    frames = list(store.frames())
+
+    assert frames
+
+    target_frame = frames[-1]
+
+    store.close()
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "pychronicle",
+            "inspect",
+            str(database),
+            "--frame",
+            str(target_frame.id),
+            "--scope",
+            "<module>",
+        ],
+    )
+
+    main()
+
+    output = capsys.readouterr().out
+    state = json.loads(output)
+
+    assert state["value"] == 25
+
+
+def test_cli_inspect_supports_function_scope(
+    tmp_path,
+    monkeypatch,
+    capsys,
+):
+    """CLI inspect should reconstruct state inside a function scope."""
+    script = tmp_path / "function_scope.py"
+    database = tmp_path / "function_scope.sqlite"
+
+    script.write_text(
+        "def compute(x):\n"
+        "    result = x * 3\n"
+        "    return result\n"
+        "\n"
+        "answer = compute(7)\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "pychronicle",
+            "run",
+            str(script),
+            "--db",
+            str(database),
+        ],
+    )
+
+    main()
+
+    capsys.readouterr()
+
+    from pychronicle.storage import TraceStore
+
+    store = TraceStore(database)
+
+    function_frames = [
+        frame
+        for frame in store.frames()
+        if frame.scope.startswith("compute")
+    ]
+
+    assert function_frames
+
+    target_frame = function_frames[-1]
+
+    store.close()
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "pychronicle",
+            "inspect",
+            str(database),
+            "--frame",
+            str(target_frame.id),
+            "--scope",
+            "compute",
+        ],
+    )
+
+    main()
+
+    output = capsys.readouterr().out
+    state = json.loads(output)
+
+    assert state["x"] == 7
+    assert state["result"] == 21
