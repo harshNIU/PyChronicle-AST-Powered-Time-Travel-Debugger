@@ -73,3 +73,27 @@ def test_init_db_can_be_called_multiple_times():
     events = get_events()
 
     assert isinstance(events, list)
+
+def test_clear_events_removes_all_events():
+    init_db()
+    clear_events()
+
+    save_event(
+        timestamp=1.0,
+        line_number=10,
+        variable_name="x",
+        serialized_value="100",
+    )
+
+    save_event(
+        timestamp=2.0,
+        line_number=11,
+        variable_name="y",
+        serialized_value="200",
+    )
+
+    assert len(get_events()) == 2
+
+    clear_events()
+
+    assert get_events() == []    
