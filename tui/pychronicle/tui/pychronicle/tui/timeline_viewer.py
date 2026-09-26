@@ -86,8 +86,14 @@ class TimelineViewer:
 
         print(f"Timeline position: {self.current_index + 1} / {total}")
     def reset(self):
-        """Reset timeline browsing to the first execution step."""
-        self.current_index = 0
+    """Reset timeline browsing to the first execution step."""
+    if not self.steps:
+        print("Timeline is empty.")
+        return
+
+    self.current_index = 0
+    self.show_current_step()
+    self.show_position()
 
 if __name__ == "__main__":
     viewer = TimelineViewer()
