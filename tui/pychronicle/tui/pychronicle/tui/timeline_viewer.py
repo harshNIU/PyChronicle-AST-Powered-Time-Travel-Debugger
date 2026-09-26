@@ -74,6 +74,17 @@ class TimelineViewer:
 
             else:
                 print("Unknown command. Use n, p, or q.")
+
+
+    def show_position(self):
+        """Display the current position in the execution timeline."""
+        total = len(self.steps)
+
+        if total == 0:
+            print("Timeline is empty.")
+            return
+
+        print(f"Timeline position: {self.current_index + 1} / {total}")
     def reset(self):
         """Reset timeline browsing to the first execution step."""
         self.current_index = 0
