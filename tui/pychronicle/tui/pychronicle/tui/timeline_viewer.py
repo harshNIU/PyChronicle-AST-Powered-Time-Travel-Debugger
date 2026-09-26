@@ -74,8 +74,11 @@ class TimelineViewer:
 
             else:
                 print("Unknown command. Use n, p, or q.")
-
+    def reset(self):
+        """Reset timeline browsing to the first execution step."""
+        self.current_index = 0
 
 if __name__ == "__main__":
     viewer = TimelineViewer()
     viewer.run()
+  
