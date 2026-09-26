@@ -58,13 +58,15 @@ class TimelineViewer:
                 if self.current_index < len(self.steps) - 1:
                     self.current_index += 1
                     self.show_current_step()
+                    self.show_position()
                 else:
                     print("Already at the last step.")
 
             elif command == "p":
-                if self.current_index > 0:
+               if self.current_index > 0:
                     self.current_index -= 1
                     self.show_current_step()
+                    self.show_position()
                 else:
                     print("Already at the first step.")
 
