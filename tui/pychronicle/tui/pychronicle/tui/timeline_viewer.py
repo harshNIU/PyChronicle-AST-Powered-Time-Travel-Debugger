@@ -76,7 +76,23 @@ class TimelineViewer:
 
             else:
                 print("Unknown command. Use n, p, or q.")
+    def show_source_line(self, source_file, line_number):
+        """Display the current source line from the traced program."""
+        if not os.path.exists(source_file):
+            print(f"Source file not found: {source_file}")
+            return
 
+        with open(source_file, "r", encoding="utf-8") as file:
+            lines = file.readlines()
+
+        if line_number < 1 or line_number > len(lines):
+            print(f"Invalid source line: {line_number}")
+            return
+
+        print("\nSource Code:")
+        for index, line in enumerate(lines, start=1):
+            marker = ">>" if index == line_number else "  "
+            print(f"{marker} {index:4}: {line.rstrip()}")
 
     def show_position(self):
         """Display the current position in the execution timeline."""
