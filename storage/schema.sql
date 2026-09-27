@@ -1,16 +1,32 @@
-CREATE TABLE IF NOT EXISTS events (
+CREATE TABLE IF NOT EXISTS frames (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    timestamp REAL NOT NULL,
+    timestamp_ns INTEGER NOT NULL,
     line_number INTEGER NOT NULL,
-    variable_name TEXT NOT NULL,
-    serialized_value TEXT NOT NULL
+    event TEXT NOT NULL,
+    scope TEXT NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_events_timestamp
-ON events(timestamp);
+CREATE TABLE IF NOT EXISTS changes (
+    frame_id INTEGER NOT NULL,
+    scope TEXT NOT NULL,
+    variable_name TEXT NOT NULL,
+    value_json TEXT,
+    operation TEXT NOT NULL,
+    PRIMARY KEY (frame_id, scope, variable_name),
+    FOREIGN KEY (frame_id) REFERENCES frames(id)
+);
 
-CREATE INDEX IF NOT EXISTS idx_events_variable_name
-ON events(variable_name);
+CREATE INDEX IF NOT EXISTS idx_changes_frame
+ON changes(frame_id);
 
-CREATE INDEX IF NOT EXISTS idx_events_line_number
-ON events(line_number);
+CREATE INDEX IF NOT EXISTS idx_changes_variable
+ON changes(variable_name, frame_id);
+
+CREATE INDEX IF NOT EXISTS idx_frames_timestamp
+ON frames(timestamp_ns);
+
+CREATE INDEX IF NOT EXISTS idx_frames_scope
+ON frames(scope);
+
+CREATE INDEX IF NOT EXISTS idx_frames_event
+ON frames(event);
