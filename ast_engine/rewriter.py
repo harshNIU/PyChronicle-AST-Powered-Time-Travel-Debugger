@@ -14,8 +14,28 @@ Checkpoint = Callable[[int, dict[str, Any]], None]
 
 def _default_checkpoint(line: int, values: dict[str, Any]) -> None:
     """Default checkpoint callback when no callback is provided."""
-
     return None
+
+
+def _build_execution_namespace(
+    path: Path,
+    namespace: dict[str, Any] | None,
+    checkpoint: Checkpoint,
+) -> dict[str, Any]:
+    """Build the namespace used when executing rewritten source."""
+
+    execution_namespace: dict[str, Any] = {
+        "__name__": "__main__",
+        "__file__": str(path),
+        "__pychronicle_checkpoint__": checkpoint,
+    }
+
+    if namespace is not None:
+        execution_namespace.update(namespace)
+
+    execution_namespace["__pychronicle_checkpoint__"] = checkpoint
+
+    return execution_namespace
 
 
 def rewrite_source(
@@ -45,21 +65,16 @@ def execute_source(
 
     path = Path(filename)
     tree = rewrite_source(source, path)
-
     code = compile(tree, str(path), "exec")
-
-    execution_namespace: dict[str, Any] = {
-        "__name__": "__main__",
-        "__file__": str(path),
-    }
-
-    if namespace is not None:
-        execution_namespace.update(namespace)
 
     if checkpoint is None:
         checkpoint = _default_checkpoint
 
-    execution_namespace["__pychronicle_checkpoint__"] = checkpoint
+    execution_namespace = _build_execution_namespace(
+        path,
+        namespace,
+        checkpoint,
+    )
 
     exec(code, execution_namespace, execution_namespace)
 
