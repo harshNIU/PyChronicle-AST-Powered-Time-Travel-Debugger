@@ -707,3 +707,108 @@ def test_cli_inspect_supports_function_scope(
 
     assert state["x"] == 7
     assert state["result"] == 21
+
+# ---------------------------------------------------------
+# Day 19 - Cross-module smoke test: recursion
+# ---------------------------------------------------------
+
+
+def test_recursive_function_tracing():
+    """The full pipeline should capture recursive function execution."""
+
+    code = """
+def factorial(n):
+    if n <= 1:
+        return 1
+    return n * factorial(n - 1)
+
+result = factorial(4)
+"""
+
+    result = Chronicle().run_source(
+        code,
+        "recursive_example.py",
+    )
+
+    frames = list(result.store.frames())
+
+    assert result.store.frame_count() > 0
+
+    factorial_frames = [
+        frame
+        for frame in frames
+        if frame.scope.startswith("factorial")
+    ]
+
+    assert len(factorial_frames) >= 4
+
+    factorial_values = []
+
+    for frame in factorial_frames:
+        state = result.store.state_at(
+            frame.id,
+            "factorial",
+        )
+
+        if "n" in state:
+            factorial_values.append(state["n"])
+
+    assert 4 in factorial_values
+    assert 3 in factorial_values
+    assert 2 in factorial_values
+    assert 1 in factorial_values
+
+
+# ---------------------------------------------------------
+# Day 19 - Cross-module smoke test: class methods
+# ---------------------------------------------------------
+
+
+def test_class_method_tracing():
+    """The full pipeline should capture execution inside a class method."""
+
+    code = """
+class Calculator:
+    def double(self, value):
+        result = value * 2
+        return result
+
+calculator = Calculator()
+answer = calculator.double(5)
+"""
+
+    result = Chronicle().run_source(
+        code,
+        "class_method_example.py",
+    )
+
+    frames = list(result.store.frames())
+
+    assert result.store.frame_count() > 0
+
+    method_frames = [
+        frame
+        for frame in frames
+        if frame.scope.startswith("double")
+    ]
+
+    assert len(method_frames) > 0
+
+    method_states = [
+        result.store.state_at(
+            frame.id,
+            "double",
+        )
+        for frame in method_frames
+    ]
+
+    assert any(
+        state.get("value") == 5
+        for state in method_states
+    )
+
+    assert any(
+        state.get("result") == 10
+        for state in method_states
+    )
+
