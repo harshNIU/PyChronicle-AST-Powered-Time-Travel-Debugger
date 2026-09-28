@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+
 from pathlib import Path
 
 from ..storage import TraceStore
@@ -11,6 +12,7 @@ from ..storage import TraceStore
 def launch(store: TraceStore, source_path: Path) -> None:
     try:
         from textual.app import App, ComposeResult
+        from rich.text import Text
         from textual.containers import Horizontal
         from textual.widgets import Button, Footer, Header, Input, Label, RichLog, Static
     except ImportError as error:
@@ -43,12 +45,21 @@ def launch(store: TraceStore, source_path: Path) -> None:
 
         def on_mount(self) -> None:
             code_widget = self.query_one("#code", RichLog)
-            source_lines = source_path.read_text(encoding="utf-8").splitlines()
+            self.source_lines = source_path.read_text(encoding="utf-8").splitlines()
 
-            for number, line in enumerate(source_lines, start=1):
-                code_widget.write(f"{number:4} | {line}")
-
+                for number, line in enumerate(self.source_lines, start=1):
+                    code_widget.write(f"{number:4} | {line}")
             self._render_frame(self.current_index)
+       def _render_code(self, current_line: int) -> None:
+            """Display source code and highlight the current execution line."""
+            code_widget = self.query_one("#code", RichLog)
+            code_widget.clear()
+
+            for number, line in enumerate(self.source_lines, start=1):
+                text = Text(f"{number:4} | {line}")
+                if number == current_line:
+                    text.stylize("bold black on yellow")
+                code_widget.write(text)
 
         def on_button_pressed(self, event: Button.Pressed) -> None:
             if event.button.id == "prev_frame":
@@ -76,6 +87,7 @@ def launch(store: TraceStore, source_path: Path) -> None:
             self._render_frame(self.current_index)
 
         def _render_frame(self, index: int) -> None:
+            
             state_widget = self.query_one("#state", Static)
 
             if not frames:
@@ -83,6 +95,7 @@ def launch(store: TraceStore, source_path: Path) -> None:
                 return
 
             frame = frames[index - 1]
+            self._render_code(frame.line_number)
             state = store.state_at(frame.id, frame.scope)
 
             state_widget.update(
