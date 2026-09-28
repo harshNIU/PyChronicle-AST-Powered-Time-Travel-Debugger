@@ -47,7 +47,7 @@ class TimelineViewer:
             return
 
         print("PyChronicle Timeline Viewer")
-        print("Commands: [n]ext, [p]revious, [s]ource, [q]uit\n")
+        print("Commands: [n]ext, [p]revious, [r]eset, [s]ource, [q]uit\n")
 
         self.show_current_step()
 
@@ -73,12 +73,14 @@ class TimelineViewer:
                 source_file = input("Enter source file path: ").strip()
                 _, line_number, _ = self.steps[self.current_index]
                 self.show_source_line(source_file, line_number)
+            elif command == "r":
+                self.reset()
             elif command == "q":
                 print("Exiting timeline viewer.")
                 break
 
             else:
-                print("Unknown command. Use n, p, or q.")
+                print("Unknown command. Use n, p, r, s, or q.")
     def show_source_line(self, source_file, line_number):
         """Display the current source line from the traced program."""
         if not os.path.exists(source_file):
@@ -110,11 +112,10 @@ class TimelineViewer:
     """Reset timeline browsing to the first execution step."""
         if not self.steps:
             print("Timeline is empty.")
-            return
-
-    self.current_index = 0
-    self.show_current_step()
-    self.show_position()
+    return
+      self.current_index = 0
+      self.show_current_step()
+      self.show_position()
 
 if __name__ == "__main__":
     viewer = TimelineViewer()
