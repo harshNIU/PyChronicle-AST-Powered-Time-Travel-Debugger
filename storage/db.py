@@ -1,6 +1,8 @@
 import sqlite3
 from pathlib import Path
 
+from storage.migrations import migrate
+
 
 DB_PATH = Path(__file__).parent / "pychronicle.db"
 SCHEMA_PATH = Path(__file__).parent / "schema.sql"
@@ -13,11 +15,14 @@ def init_db() -> None:
             schema = schema_file.read()
 
         connection.executescript(schema)
+        migrate(connection)
 
 
 def get_connection() -> sqlite3.Connection:
-    """Return a connection to the PyChronicle database."""
-    return sqlite3.connect(DB_PATH)
+    """Return a connection with foreign-key enforcement enabled."""
+    connection = sqlite3.connect(DB_PATH)
+    connection.execute("PRAGMA foreign_keys = ON")
+    return connection
 
 
 def save_event(
