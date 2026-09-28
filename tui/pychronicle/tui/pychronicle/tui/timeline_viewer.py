@@ -69,7 +69,10 @@ class TimelineViewer:
                     self.show_position()
                 else:
                     print("Already at the first step.")
-
+            elif command == "s":
+                source_file = input("Enter source file path: ").strip()
+                _, line_number, _ = self.steps[self.current_index]
+                self.show_source_line(source_file, line_number)
             elif command == "q":
                 print("Exiting timeline viewer.")
                 break
