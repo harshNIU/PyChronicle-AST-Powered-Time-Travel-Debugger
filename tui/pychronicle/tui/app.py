@@ -97,6 +97,11 @@ def launch(store: TraceStore, source_path: Path) -> None:
             frame = frames[index - 1]
             self._render_code(frame.line_number)
             state = store.state_at(frame.id, frame.scope)
+            variable_text = (
+                "\n".join(f"  {name} = {value!r}" for name, value in state.items())
+                if state
+                else "  (no variables)"
+            )
 
             state_widget.update(
                 f"Frame: {index} / {total_frames}\n"
@@ -104,7 +109,6 @@ def launch(store: TraceStore, source_path: Path) -> None:
                 f"Event: {frame.event}\n"
                 f"Scope: {frame.scope}\n\n"
                 f"Variables:\n"
-                f"{json.dumps(state, indent=2, default=str)}"
+                f"{variable_text}"
             )
-
     ChronicleApp().run()
