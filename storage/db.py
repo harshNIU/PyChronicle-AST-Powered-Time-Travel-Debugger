@@ -1,6 +1,8 @@
 import sqlite3
 from pathlib import Path
 
+from storage.migrations import migrate
+
 
 DB_PATH = Path(__file__).parent / "pychronicle.db"
 SCHEMA_PATH = Path(__file__).parent / "schema.sql"
@@ -13,6 +15,7 @@ def init_db() -> None:
             schema = schema_file.read()
 
         connection.executescript(schema)
+        migrate(connection)
 
 
 def get_connection() -> sqlite3.Connection:
