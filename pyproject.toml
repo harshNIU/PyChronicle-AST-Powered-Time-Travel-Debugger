@@ -20,4 +20,4 @@ pychronicle = "pychronicle.cli:main"
 testpaths = ["tests"]
 
 [tool.setuptools.packages.find]
-include = ["pychronicle*"]
+include = ["pychronicle*", "ast_engine*"]
