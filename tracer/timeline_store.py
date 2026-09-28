@@ -1,3 +1,10 @@
+"""
+SQLite storage for PyChronicle execution timelines.
+
+TimelineStore saves the history recorded by ExecutionTracer (calls, lines,
+returns and exceptions) into a SQLite file and loads it back afterwards.
+"""
+
 import sqlite3
 
 
