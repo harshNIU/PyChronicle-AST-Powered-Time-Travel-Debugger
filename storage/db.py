@@ -16,8 +16,10 @@ def init_db() -> None:
 
 
 def get_connection() -> sqlite3.Connection:
-    """Return a connection to the PyChronicle database."""
-    return sqlite3.connect(DB_PATH)
+    """Return a connection with foreign-key enforcement enabled."""
+    connection = sqlite3.connect(DB_PATH)
+    connection.execute("PRAGMA foreign_keys = ON")
+    return connection
 
 
 def save_event(
