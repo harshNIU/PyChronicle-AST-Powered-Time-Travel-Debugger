@@ -1,13 +1,25 @@
+"""
+Execution tracer for PyChronicle.
+
+Uses sys.settrace to record what happens while Python code runs:
+function calls, line-by-line variable changes, returns and exceptions.
+The recorded history is a list of dicts (one per event) which can be
+printed with print_timeline() or saved with TimelineStore
+(see timeline_store.py).
+
+To trace any Python file from the command line, use run_tracer.py.
+"""
+
 import sys
 
 
 def safe_repr(value, max_length=200):
     """
-    Safely convert any value to a string representation.
+    Return repr(value) without ever raising.
 
-    Some objects raise exceptions from __repr__ (see the Unprintable
-    class below), so this guards against crashing just because one
-    traced value couldn't be printed.
+    Some objects raise from __repr__ (see the Unprintable class below).
+    Those are described as "<unrepresentable ...>" instead, and very long
+    results are cut to max_length characters.
     """
     try:
         text = repr(value)
@@ -21,28 +33,52 @@ def safe_repr(value, max_length=200):
 
 
 def format_changes(changed_vars):
+    """Turn a {name: value} dict into a {name: safe string} dict for printing."""
     return {key: safe_repr(value) for key, value in changed_vars.items()}
 
 
 class ExecutionTracer:
     """
-    Tracks execution history using sys.settrace.
+    Records execution history using sys.settrace.
 
-    Day 8 improvements:
-    - Safely handles values that raise exceptions when compared
-      (some custom objects have __eq__ methods that raise instead
-      of returning True/False)
+    Every recorded step is a dict with a "type" of "call", "line",
+    "return" or "exception", plus the function name, call depth and
+    line number. Line steps also hold the variables that changed,
+    return steps hold the returned value, and exception steps hold the
+    exception type and message.
+
+    Usage:
+        tracer = ExecutionTracer(target_file=__file__)
+        tracer.start()
+        ...code to trace...
+        tracer.stop()
+        tracer.print_timeline()
     """
 
     def __init__(self, target_file=None):
+        """
+        target_file: only code from this file is traced. If None,
+        code from every file is traced.
+        """
         self.target_file = target_file
         self.history = []
         self._last_locals = {}
         self.call_stack = []
 
     def _get_changes(self, current_locals):
+        """
+        Return only the variables that are new or changed since the last
+        recorded line.
+
+        Dunder names such as __name__ or __builtins__ are skipped, since
+        they appear in module-level code and are just noise. Values that
+        raise when compared are treated as changed, so nothing is dropped.
+        """
         changes = {}
         for key, value in current_locals.items():
+            if key.startswith("__") and key.endswith("__"):
+                continue
+
             if key not in self._last_locals:
                 changes[key] = value
                 continue
@@ -58,6 +94,11 @@ class ExecutionTracer:
         return changes
 
     def trace_calls(self, frame, event, arg):
+        """
+        Callback given to sys.settrace. Python calls it on every
+        call / line / return / exception event, and each one is appended
+        to self.history as a dict.
+        """
         if self.target_file and frame.f_code.co_filename != self.target_file:
             return None
 
@@ -110,12 +151,15 @@ class ExecutionTracer:
         return self.trace_calls
 
     def start(self):
+        """Start recording. Code that runs after this call is traced."""
         sys.settrace(self.trace_calls)
 
     def stop(self):
+        """Stop recording."""
         sys.settrace(None)
 
     def print_timeline(self):
+        """Print the recorded history, indented by call depth."""
         print("\n--- Execution Timeline (with call stack) ---")
         for i, step in enumerate(self.history):
             indent = "    " * max(step["depth"] - 1, 0)
