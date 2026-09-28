@@ -75,12 +75,16 @@ class TimelineViewer:
                 self.show_source_line(source_file, line_number)
             elif command == "r":
                 self.reset()
+            elif command == "l":
+                self.current_index = len(self.steps) - 1
+                self.show_current_step()
+                self.show_position()
             elif command == "q":
                 print("Exiting timeline viewer.")
                 break
 
             else:
-                print("Unknown command. Use n, p, r, s, or q.")
+                print("Unknown command. Use n, p, r, l, s, or q.")
     def show_source_line(self, source_file, line_number):
         """Display the current source line from the traced program."""
         if not os.path.exists(source_file):
