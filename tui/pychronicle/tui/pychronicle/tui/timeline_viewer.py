@@ -50,7 +50,7 @@ class TimelineViewer:
         print("Commands: [n]ext, [p]revious, [r]eset, [s]ource, [q]uit\n")
 
         self.show_current_step()
-
+        self.show_position()
         while True:
             command = input("\n> ").strip().lower()
 
