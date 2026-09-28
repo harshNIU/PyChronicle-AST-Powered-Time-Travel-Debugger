@@ -47,7 +47,7 @@ class TimelineViewer:
             return
 
         print("PyChronicle Timeline Viewer")
-        print("Commands: [n]ext, [p]revious, [r]eset, [s]ource, [q]uit\n")
+        print("Commands: [n]ext, [p]revious, [r]eset, [l]ast, [g]o, to step [s]ource, [q]uit\n")
 
         self.show_current_step()
         self.show_position()
@@ -79,12 +79,25 @@ class TimelineViewer:
                 self.current_index = len(self.steps) - 1
                 self.show_current_step()
                 self.show_position()
+            elif command == "g":
+                try:
+                    step = int(input("Enter step number: ").strip())
+                except ValueError:
+                    print("Please enter a valid number.")
+                    continue
+
+                if 1 <= step <= len(self.steps):
+                    self.current_index = step - 1
+                    self.show_current_step()
+                    self.show_position()
+                else:
+                    print(f"Enter a step between 1 and {len(self.steps)}.")
             elif command == "q":
                 print("Exiting timeline viewer.")
                 break
 
             else:
-                print("Unknown command. Use n, p, r, l, s, or q.")
+                print("Unknown command. Use n, p, r, l, g, s, or q.")
     def show_source_line(self, source_file, line_number):
         """Display the current source line from the traced program."""
         if not os.path.exists(source_file):
