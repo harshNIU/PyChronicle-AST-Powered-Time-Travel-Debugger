@@ -47,7 +47,7 @@ class TimelineViewer:
             return
 
         print("PyChronicle Timeline Viewer")
-        print("Commands: [n]ext, [p]revious, [q]uit\n")
+        print("Commands: [n]ext, [p]revious, [s]ource, [q]uit\n")
 
         self.show_current_step()
 
