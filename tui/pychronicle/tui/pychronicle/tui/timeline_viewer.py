@@ -92,6 +92,19 @@ class TimelineViewer:
                     self.show_position()
                 else:
                     print(f"Enter a step between 1 and {len(self.steps)}.")
+            elif command == "j":
+              try:
+                target = int(input("Enter step number: ").strip())
+                except ValueError:
+                print("Please enter a valid number.")
+                continue
+
+                if 1 <= target <= len(self.steps):
+                    self.current_index = target - 1
+                    self.show_current_step()
+                    self.show_position()
+                else:
+                    print(f"Enter a step between 1 and {len(self.steps)}.")
             elif command == "q":
                 print("Exiting timeline viewer.")
                 break
@@ -111,11 +124,12 @@ class TimelineViewer:
             print(f"Invalid source line: {line_number}")
             return
 
-        print("\nSource Code:")
-        for index, line in enumerate(lines, start=1):
+        print("\nSource Code (current line with context):")
+        start = max(1, line_number - 3)
+        end = min(len(lines), line_number + 3)
+        for index, line in enumerate(lines[start - 1:end], start=start):
             marker = ">>" if index == line_number else "  "
             print(f"{marker} {index:4}: {line.rstrip()}")
-
     def show_position(self):
         """Display the current position in the execution timeline."""
         total = len(self.steps)
