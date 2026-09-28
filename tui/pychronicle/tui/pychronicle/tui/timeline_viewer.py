@@ -105,12 +105,22 @@ class TimelineViewer:
                     self.show_position()
                 else:
                     print(f"Enter a step between 1 and {len(self.steps)}.")
+            elif command == "h":
+                print("\nAvailable commands:")
+                print("n - Next step")
+                print("p - Previous step")
+                print("j - Jump to a specific step")
+                print("l - Go to the last step")
+                print("r - Reset to the first step")
+                print("s - Show source code")
+                print("h - Show this help")
+                print("q - Quit")
             elif command == "q":
                 print("Exiting timeline viewer.")
                 break
 
             else:
-                print("Unknown command. Use n, p, r, l, g, s, or q.")
+                print("Unknown command. Use n, p, r, l, g, s, j, h, or q.")
     def show_source_line(self, source_file, line_number):
         """Display the current source line from the traced program."""
         if not os.path.exists(source_file):
