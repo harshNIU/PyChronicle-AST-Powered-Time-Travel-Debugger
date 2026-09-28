@@ -6,76 +6,215 @@ import json
 from pathlib import Path
 
 from .storage import TraceStore
+from .timeline import Timeline
 
 
 def launch(store: TraceStore, source_path: Path) -> None:
     try:
         from textual.app import App, ComposeResult
         from textual.containers import Horizontal
-        from textual.widgets import Button, Footer, Header, Input, Label, RichLog, Static
+        from textual.widgets import (
+            Button,
+            Footer,
+            Header,
+            Input,
+            Label,
+            RichLog,
+            Static,
+        )
     except ImportError as error:
-        raise SystemExit("The TUI requires Textual. Install it with: pip install -e .[tui]") from error
+        raise SystemExit(
+            "The TUI requires Textual. Install it with: pip install -e .[tui]"
+        ) from error
 
-    frames = list(store.frames())
-    total_frames = max(1, len(frames))
+    timeline = Timeline(store)
+    total_frames = timeline.total
+
+    # The source file may not be available when the TUI is tested
+    # independently of the original execution environment.
+    if source_path.exists():
+        source_lines = source_path.read_text(
+            encoding="utf-8"
+        ).splitlines()
+    else:
+        source_lines = []
 
     class ChronicleApp(App[None]):
-        CSS = """
-        #code, #state { width: 1fr; height: 1fr; border: solid $accent; }
-        #timeline_bar { height: 3; align: center middle; content-align: center middle; }
-        #frame_input { width: 12; }
-        #frame_total { padding: 1 1; }
-        """
+        """Interactive timeline viewer for a captured PyChronicle trace."""
 
-        current_index: int = total_frames
+        CSS = """
+        #code {
+            width: 1fr;
+            height: 1fr;
+            border: solid $accent;
+        }
+
+        #state {
+            width: 1fr;
+            height: 1fr;
+            border: solid $accent;
+            padding: 1;
+        }
+
+        #timeline_bar {
+            height: 3;
+            align: center middle;
+            content-align: center middle;
+        }
+
+        #frame_input {
+            width: 12;
+        }
+
+        #frame_total {
+            padding: 1 1;
+        }
+        """
 
         def compose(self) -> ComposeResult:
             yield Header(show_clock=True)
+
             with Horizontal():
-                yield RichLog(id="code", wrap=True, highlight=True)
+                yield RichLog(
+                    id="code",
+                    wrap=True,
+                    highlight=True,
+                    markup=False,
+                )
                 yield Static(id="state")
+
             with Horizontal(id="timeline_bar"):
-                yield Button("◄ Prev", id="prev_frame")
-                yield Input(value=str(self.current_index), id="frame_input")
-                yield Label(f" / {total_frames}", id="frame_total")
-                yield Button("Next ►", id="next_frame")
+                yield Button("Prev", id="prev_frame")
+                yield Input(
+                    value="1" if total_frames else "0",
+                    id="frame_input",
+                )
+                yield Label(
+                    f" / {total_frames}",
+                    id="frame_total",
+                )
+                yield Button("Next", id="next_frame")
+
             yield Footer()
 
         def on_mount(self) -> None:
-            log_widget = self.query_one("#code", RichLog)
-            log_widget.write(source_path.read_text(encoding="utf-8"))
-            self._render_frame(self.current_index)
+            self._render_source()
+            self._render_frame()
 
-        def on_button_pressed(self, event: Button.Pressed) -> None:
-            if event.button.id == "prev_frame" and self.current_index > 1:
-                self.current_index -= 1
-                self.query_one("#frame_input", Input).value = str(self.current_index)
-                self._render_frame(self.current_index)
-            elif event.button.id == "next_frame" and self.current_index < total_frames:
-                self.current_index += 1
-                self.query_one("#frame_input", Input).value = str(self.current_index)
-                self._render_frame(self.current_index)
+        def _render_source(self) -> None:
+            """Render the source file with line numbers."""
+            code_widget = self.query_one("#code", RichLog)
 
-        def on_input_changed(self, event: Input.Changed) -> None:
-            if event.input.id == "frame_input":
-                try:
-                    val = int(event.value)
-                    if 1 <= val <= total_frames and val != self.current_index:
-                        self.current_index = val
-                        self._render_frame(self.current_index)
-                except ValueError:
-                    pass
-
-        def _render_frame(self, index: int) -> None:
-            if not frames:
-                self.query_one("#state", Static).update("No variable changes captured.")
+            if not source_lines:
+                code_widget.write(
+                    "Source file is unavailable."
+                )
                 return
-            frame = frames[index - 1]
-            state = store.state_at(frame.id, frame.scope)
-            self.query_one("#state", Static).update(
-                f"Frame {frame.id} / {total_frames} · Line {frame.line_number} · Event: {frame.event} · Scope: {frame.scope}\n\n"
-                + json.dumps(state, indent=2, default=str)
+
+            for number, line in enumerate(
+                source_lines,
+                start=1,
+            ):
+                code_widget.write(
+                    f"{number:4} | {line}"
+                )
+
+        def on_button_pressed(
+            self,
+            event: Button.Pressed,
+        ) -> None:
+            """Handle timeline navigation buttons."""
+            if total_frames == 0:
+                return
+
+            if event.button.id == "prev_frame":
+                timeline.previous()
+                self._sync_frame_input()
+                self._render_frame()
+
+            elif event.button.id == "next_frame":
+                timeline.next()
+                self._sync_frame_input()
+                self._render_frame()
+
+        def on_input_changed(
+            self,
+            event: Input.Changed,
+        ) -> None:
+            """Jump directly to a requested timeline position."""
+            if event.input.id != "frame_input":
+                return
+
+            if total_frames == 0:
+                return
+
+            try:
+                value = int(event.value)
+            except ValueError:
+                return
+
+            if not 1 <= value <= total_frames:
+                return
+
+            if value != timeline.position.index:
+                timeline.move_to(value)
+                self._render_frame()
+
+        def _sync_frame_input(self) -> None:
+            """Keep the frame input synchronized with Timeline."""
+            input_widget = self.query_one(
+                "#frame_input",
+                Input,
+            )
+
+            if total_frames == 0:
+                input_widget.value = "0"
+            else:
+                input_widget.value = str(
+                    timeline.position.index
+                )
+
+        def _render_frame(self) -> None:
+            """Render the current frame and reconstructed state."""
+            state_widget = self.query_one(
+                "#state",
+                Static,
+            )
+
+            frame = timeline.current
+
+            if frame is None:
+                state_widget.update(
+                    "No execution frames captured."
+                )
+                return
+
+            state = timeline.state()
+
+            current_line = ""
+
+            if (
+                1 <= frame.line_number
+                <= len(source_lines)
+            ):
+                current_line = source_lines[
+                    frame.line_number - 1
+                ]
+
+            position = timeline.position
+
+            state_widget.update(
+                f"Frame: {position.index} / "
+                f"{position.total}\n"
+                f"Frame ID: {frame.id}\n"
+                f"Line: {frame.line_number}\n"
+                f"Event: {frame.event}\n"
+                f"Scope: {frame.scope}\n\n"
+                f"Source:\n"
+                f"{frame.line_number:4} | "
+                f"{current_line}\n\n"
+                f"Variables:\n"
+                f"{json.dumps(state, indent=2, default=str)}"
             )
 
     ChronicleApp().run()
-
