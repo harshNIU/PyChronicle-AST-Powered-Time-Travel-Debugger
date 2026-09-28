@@ -26,10 +26,12 @@ Thumbs.db
 # Local files
 README.local.md
 
+timeline.db
 # Environment variables
 .env
 
 # SQLite database
 storage/pychronicle.db
+storage/benchmark.db
 # Local SQLite database
 timeline.db
