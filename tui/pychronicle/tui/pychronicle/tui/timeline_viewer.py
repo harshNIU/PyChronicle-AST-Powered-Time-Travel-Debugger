@@ -105,7 +105,7 @@ class TimelineViewer:
                     self.show_position()
                 else:
                     print(f"Enter a step between 1 and {len(self.steps)}.")
-            elif command == "h":
+            elif command in ("h", "help"):
                 print("\nAvailable commands:")
                 print("n - Next step")
                 print("p - Previous step")
