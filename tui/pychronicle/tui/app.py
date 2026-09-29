@@ -19,7 +19,6 @@ def launch(store: TraceStore, source_path: Path) -> None:
         raise SystemExit(
             "The TUI requires Textual. Install it with: pip install -e .[tui]"
         ) from error
-
     frames = list(store.frames())
     total_frames = len(frames)
 
