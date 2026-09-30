@@ -19,3 +19,38 @@ def test_trace_store_records_and_reconstructs_state():
     assert state["x"] == 100
 
     store.close()
+
+def test_trace_store_reconstructs_deleted_variable():
+    store = TraceStore()
+
+    first_frame = store.record(
+        line_number=10,
+        event="assign",
+        scope="<module>",
+        values={"x": 100, "y": 200},
+    )
+
+    second_frame = store.record(
+        line_number=11,
+        event="delete",
+        scope="<module>",
+        values={"x": 100},
+    )
+
+    assert first_frame is not None
+    assert second_frame is not None
+
+    state = store.state_at(second_frame, "<module>")
+
+    assert state["x"] == 100
+    assert "y" not in state
+
+    delete_changes = [
+        change
+        for change in store.changes_for("y")
+        if change["operation"] == "delete"
+    ]
+
+    assert len(delete_changes) == 1
+
+    store.close()
