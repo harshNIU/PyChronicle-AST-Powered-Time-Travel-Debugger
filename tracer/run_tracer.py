@@ -4,6 +4,7 @@ Trace any Python script and save its execution timeline.
 Usage:
     python3 tracer/run_tracer.py path/to/script.py
     python3 tracer/run_tracer.py path/to/script.py --db my_timeline.db --quiet
+    python3 tracer/run_tracer.py path/to/script.py --max-steps 2000 --summary
 
 Exit codes: 0 = script finished, 1 = script raised an error,
 2 = script file not found.
@@ -18,7 +19,7 @@ from basic_tracer import ExecutionTracer
 from timeline_store import TimelineStore
 
 
-def trace_script(script_path, db_path="timeline.db"):
+def trace_script(script_path, db_path="timeline.db", max_steps=None):
     """
     Run the script at script_path under the tracer and save the timeline.
 
@@ -30,7 +31,7 @@ def trace_script(script_path, db_path="timeline.db"):
     if not os.path.isfile(script_path):
         raise FileNotFoundError(f"Script not found: {script_path}")
 
-    tracer = ExecutionTracer(target_file=script_path)
+    tracer = ExecutionTracer(target_file=script_path, max_steps=max_steps)
 
     old_argv = sys.argv
     old_path = list(sys.path)
@@ -72,20 +73,34 @@ def main(argv=None):
         help="SQLite file to save the timeline to (default: timeline.db)",
     )
     parser.add_argument(
+        "--max-steps",
+        type=int,
+        default=None,
+        help="stop recording after this many steps (default: no limit)",
+    )
+    parser.add_argument(
         "--quiet",
         action="store_true",
         help="don't print the timeline, only save it",
     )
+    parser.add_argument(
+        "--summary",
+        action="store_true",
+        help="print an aggregate summary after the timeline",
+    )
     args = parser.parse_args(argv)
 
     try:
-        tracer, error = trace_script(args.script, db_path=args.db)
+        tracer, error = trace_script(args.script, db_path=args.db, max_steps=args.max_steps)
     except FileNotFoundError as exc:
         print(exc, file=sys.stderr)
         return 2
 
     if not args.quiet:
         tracer.print_timeline()
+
+    if args.summary:
+        tracer.print_summary()
 
     print(f"\nSaved {len(tracer.history)} steps to {args.db}")
 
