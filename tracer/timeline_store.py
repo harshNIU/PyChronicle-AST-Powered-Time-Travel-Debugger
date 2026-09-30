@@ -3,21 +3,18 @@ SQLite storage for PyChronicle execution timelines.
 
 TimelineStore saves the history recorded by ExecutionTracer (calls, lines,
 returns and exceptions) into a SQLite file and loads it back afterwards.
+
+Day 12-15 improvements:
+- Stores the literal source line of code alongside each step
+- Adds query helpers (get_steps_by_function, get_steps_by_type,
+  get_exceptions) so a saved timeline can be filtered without loading
+  and re-scanning the entire history in Python
 """
 
 import sqlite3
 
 
 class TimelineStore:
-    """
-    Persists execution history to a SQLite database so that
-    a program's timeline can be inspected after it finishes running.
-
-    Day 8 improvements:
-    - Safely serializes values that raise exceptions in repr()/str(),
-      or that produce excessively long output
-    """
-
     def __init__(self, db_path="timeline.db"):
         self.conn = sqlite3.connect(db_path)
         self._create_table()
@@ -34,7 +31,8 @@ class TimelineStore:
                 changed_vars TEXT,
                 return_value TEXT,
                 exception_type TEXT,
-                exception_message TEXT
+                exception_message TEXT,
+                source_text TEXT
             )
         """)
         self.conn.commit()
@@ -61,8 +59,8 @@ class TimelineStore:
                 """
                 INSERT INTO execution_steps
                     (step_index, event_type, function_name, depth, line_number,
-                     changed_vars, return_value, exception_type, exception_message)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     changed_vars, return_value, exception_type, exception_message, source_text)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     i,
@@ -74,20 +72,36 @@ class TimelineStore:
                     self._safe_repr(step["value"]) if "value" in step else None,
                     step.get("exception_type"),
                     step.get("exception_message"),
+                    step.get("source"),
                 )
             )
         self.conn.commit()
 
-    def load_history(self):
-        cursor = self.conn.execute(
-            """
+    def _select(self, where_clause="", params=()):
+        query = """
             SELECT step_index, event_type, function_name, depth, line_number,
-                   changed_vars, return_value, exception_type, exception_message
+                   changed_vars, return_value, exception_type, exception_message,
+                   source_text
             FROM execution_steps
-            ORDER BY step_index
-            """
-        )
+        """
+        if where_clause:
+            query += f" WHERE {where_clause}"
+        query += " ORDER BY step_index"
+
+        cursor = self.conn.execute(query, params)
         return cursor.fetchall()
+
+    def load_history(self):
+        return self._select()
+
+    def get_steps_by_function(self, function_name):
+        return self._select("function_name = ?", (function_name,))
+
+    def get_steps_by_type(self, event_type):
+        return self._select("event_type = ?", (event_type,))
+
+    def get_exceptions(self):
+        return self.get_steps_by_type("exception")
 
     def clear(self):
         self.conn.execute("DELETE FROM execution_steps")

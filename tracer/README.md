@@ -1,58 +1,37 @@
-# Tracer module
 
-Records what happens while a Python program runs, using `sys.settrace`,
-and saves the recording to SQLite so it can be inspected afterwards.
-
-## Files
-
-- `basic_tracer.py` - `ExecutionTracer`, which records calls, line-by-line
-  variable changes, returns and exceptions
-- `timeline_store.py` - `TimelineStore`, which saves and loads a recording
-  using SQLite
-- `run_tracer.py` - command-line tool that traces any Python script
-
-## Trace a script
-
-From the project root:
-
-```
-python3 tracer/run_tracer.py examples/tracer_demo.py
-```
-
-Options:
-
-- `--db FILE` - where to save the timeline (default: `timeline.db`)
-- `--quiet` - save the timeline without printing it
-
-Exit codes: `0` finished normally, `1` the script raised an error
-(the timeline is still saved), `2` script file not found.
-
-## Use it from Python
+## Step limits for long or infinite loops
 
 ```python
-from basic_tracer import ExecutionTracer
-
-tracer = ExecutionTracer(target_file=__file__)
-tracer.start()
-# ... code to trace ...
-tracer.stop()
-tracer.print_timeline()
+tracer = ExecutionTracer(target_file=__file__, max_steps=5000)
 ```
 
-## What gets recorded
-
-Each step is a dict with a `type`:
-
-- `call` - a function was entered
-- `line` - a line ran, with the variables that changed
-- `return` - a function returned, with its return value
-- `exception` - an exception was raised, with its type and message
-
-Values that can't be printed or compared safely are handled without
-crashing, and long values are truncated when saved.
-
-## Tests
+Once 5000 steps are captured, recording stops automatically. The traced
+program keeps running as normal; only the recording is cut off, so a
+long or infinite loop can't hang the tracer or fill memory. Check
+`tracer.truncated` (True/False) to see if this happened. Same option
+from the command line:
 
 ```
-python3 -m pytest tests/test_tracer.py tests/test_run_tracer.py -v
+python3 tracer/run_tracer.py examples/loop_demo.py --max-steps 30 --summary
+```
+
+## Summary reports
+
+```python
+tracer.print_summary()
+```
+
+Prints total steps recorded, how many times each function was called,
+and any exceptions raised. Also available from the command line with
+`--summary` on `run_tracer.py`.
+
+## Querying a saved timeline
+
+Once a timeline has been saved to a database, it can be filtered without
+rerunning the script:
+
+```
+python3 tracer/query_timeline.py --db timeline.db --function add_numbers
+python3 tracer/query_timeline.py --db timeline.db --exceptions
+python3 tracer/query_timeline.py --db timeline.db --summary
 ```
