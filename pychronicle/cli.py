@@ -95,7 +95,7 @@ def main() -> None:
     args = parser.parse_args()
 
     # ------------------------------------------------------------------
-    # INSPECT
+    # INSPECT COMMAND
     # ------------------------------------------------------------------
 
     if args.command == "inspect":
@@ -108,6 +108,27 @@ def main() -> None:
 
             if args.variable is not None:
                 changes = store.changes_for(args.variable)
+
+                # Apply scope filtering.
+                if args.scope is not None:
+                    changes = [
+                        change
+                        for change in changes
+                        if (
+                            change["scope"] == args.scope
+                            or change["scope"].startswith(
+                                f"{args.scope}@"
+                            )
+                        )
+                    ]
+
+                # Apply event filtering.
+                if args.event is not None:
+                    changes = [
+                        change
+                        for change in changes
+                        if change["event"] == args.event
+                    ]
 
                 if not changes:
                     print(
