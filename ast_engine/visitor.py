@@ -1,4 +1,4 @@
-"""AST visitor for collecting variable assignment nodes."""
+"""AST visitor utilities for collecting assignment information."""
 
 import ast
 from dataclasses import dataclass

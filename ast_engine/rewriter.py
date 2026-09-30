@@ -1,4 +1,4 @@
-"""AST rewriter for executing instrumented Python code."""
+"""Utilities for rewriting and executing instrumented Python ASTs."""
 
 from __future__ import annotations
 

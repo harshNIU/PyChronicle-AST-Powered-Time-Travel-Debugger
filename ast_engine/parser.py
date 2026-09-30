@@ -1,4 +1,4 @@
-"""Utilities for parsing Python source files and finding AST boundaries."""
+"""Utilities for parsing Python source and inspecting its AST structure."""
 
 from __future__ import annotations
 
