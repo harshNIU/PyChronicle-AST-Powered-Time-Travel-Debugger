@@ -6,6 +6,7 @@ from storage.db import (
     save_event,
     get_events,
     clear_events,
+    get_connection,
 )
 
 
@@ -105,9 +106,7 @@ def test_foreign_key_constraint_is_enabled():
     init_db()
     clear_events()
 
-    with sqlite3.connect("storage/pychronicle.db") as connection:
-        connection.execute("PRAGMA foreign_keys = ON")
-
+    with get_connection() as connection:
         with pytest.raises(sqlite3.IntegrityError):
             connection.execute(
                 """
