@@ -92,6 +92,14 @@ def main() -> None:
         help="show recorded history for a variable",
     )
 
+    inspect.add_argument(
+        "--diff",
+        nargs=2,
+        type=int,
+        metavar=("FROM", "TO"),
+        help="show variable changes between two frames",
+    )
+
     args = parser.parse_args()
 
     # ------------------------------------------------------------------
@@ -152,6 +160,82 @@ def main() -> None:
                 return
 
             # ----------------------------------------------------------
+            # FRAME DIFF
+            # ----------------------------------------------------------
+
+            if args.diff is not None:
+                from_frame, to_frame = args.diff
+
+                if from_frame > to_frame:
+                    inspect.error(
+                        "FROM frame must be less than or equal to TO frame"
+                    )
+
+                before = store.state_at(
+                    from_frame,
+                    args.scope,
+                )
+
+                after = store.state_at(
+                    to_frame,
+                    args.scope,
+                )
+
+                added = {}
+                removed = {}
+                changed = {}
+
+                all_names = set(before) | set(after)
+
+                for name in sorted(all_names):
+                    if name not in before:
+                        added[name] = after[name]
+                    elif name not in after:
+                        removed[name] = before[name]
+                    elif before[name] != after[name]:
+                        changed[name] = {
+                            "from": before[name],
+                            "to": after[name],
+                        }
+
+                print(
+                    f"Changes from Frame "
+                    f"{from_frame} -> Frame {to_frame}"
+                )
+
+                if not added and not removed and not changed:
+                    print("No changes.")
+                    return
+
+                if added:
+                    print("\nAdded:")
+                    for name, value in added.items():
+                        print(
+                            f"  + {name} = "
+                            f"{json.dumps(value, default=str)}"
+                        )
+
+                if removed:
+                    print("\nRemoved:")
+                    for name, value in removed.items():
+                        print(
+                            f"  - {name} = "
+                            f"{json.dumps(value, default=str)}"
+                        )
+
+                if changed:
+                    print("\nChanged:")
+                    for name, values in changed.items():
+                        print(
+                            f"  ~ {name}: "
+                            f"{json.dumps(values['from'], default=str)} "
+                            f"-> "
+                            f"{json.dumps(values['to'], default=str)}"
+                        )
+
+                return
+
+            # ----------------------------------------------------------
             # GET FILTERED FRAMES
             # ----------------------------------------------------------
 
@@ -182,13 +266,13 @@ def main() -> None:
                 return
 
             # ----------------------------------------------------------
-            # FRAME REQUIRED WHEN NOT USING --list OR --variable
+            # FRAME REQUIRED
             # ----------------------------------------------------------
 
             if args.frame is None:
                 inspect.error(
                     "--frame is required unless "
-                    "--list or --variable is used"
+                    "--list, --variable, or --diff is used"
                 )
 
             # ----------------------------------------------------------
