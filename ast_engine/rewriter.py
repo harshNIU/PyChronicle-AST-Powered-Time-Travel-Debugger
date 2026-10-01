@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import sys
 from pathlib import Path
 from typing import Any, Callable
 
@@ -76,6 +77,18 @@ def execute_source(
         checkpoint,
     )
 
-    exec(code, execution_namespace, execution_namespace)
+    source_directory = path.parent.resolve()
+    path_entry = str(source_directory)
+    path_added = False
+
+    if path != Path("<memory>") and path_entry not in sys.path:
+        sys.path.insert(0, path_entry)
+        path_added = True
+
+    try:
+        exec(code, execution_namespace, execution_namespace)
+    finally:
+        if path_added:
+            sys.path.remove(path_entry)
 
     return execution_namespace
