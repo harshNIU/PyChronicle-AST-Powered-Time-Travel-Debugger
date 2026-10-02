@@ -1,37 +1,15 @@
 
-## Step limits for long or infinite loops
+## Exporting a timeline to JSON
 
-```python
-tracer = ExecutionTracer(target_file=__file__, max_steps=5000)
-```
-
-Once 5000 steps are captured, recording stops automatically. The traced
-program keeps running as normal; only the recording is cut off, so a
-long or infinite loop can't hang the tracer or fill memory. Check
-`tracer.truncated` (True/False) to see if this happened. Same option
-from the command line:
+For tools outside this module (the team's CLI/TUI, a notebook, anything
+that isn't Python at all) a saved timeline can be exported to plain JSON
+instead of being read from SQLite directly:
 
 ```
-python3 tracer/run_tracer.py examples/loop_demo.py --max-steps 30 --summary
+python3 tracer/export_timeline.py --db timeline.db --pretty
+python3 tracer/export_timeline.py --db timeline.db --function add_numbers --out add_numbers.json
 ```
 
-## Summary reports
-
-```python
-tracer.print_summary()
-```
-
-Prints total steps recorded, how many times each function was called,
-and any exceptions raised. Also available from the command line with
-`--summary` on `run_tracer.py`.
-
-## Querying a saved timeline
-
-Once a timeline has been saved to a database, it can be filtered without
-rerunning the script:
-
-```
-python3 tracer/query_timeline.py --db timeline.db --function add_numbers
-python3 tracer/query_timeline.py --db timeline.db --exceptions
-python3 tracer/query_timeline.py --db timeline.db --summary
-```
+Each exported step has `step_index`, `event_type`, `function_name`,
+`depth`, `line_number`, `changed_vars` (a real JSON object, not a string),
+`return_value`, `exception_type`, `exception_message`, and `source_text`.
