@@ -170,3 +170,89 @@ for number in range(3):
     assert namespace["total"] == 3
     assert checkpoints
     assert checkpoints[-1][1]["total"] == 3
+
+
+def test_execute_source_supports_imported_module(tmp_path):
+    """The rewriter should execute source that imports another Python module."""
+
+    helper = tmp_path / "helper.py"
+
+    helper.write_text(
+        """def get_value():
+    return 42
+""",
+        encoding="utf-8",
+    )
+
+    source = """from helper import get_value
+
+result = get_value()
+"""
+
+    checkpoints = []
+
+    def checkpoint(line, values):
+        checkpoints.append((line, dict(values)))
+
+    namespace = execute_source(
+        source,
+        filename=tmp_path / "main.py",
+        checkpoint=checkpoint,
+    )
+
+    assert namespace["result"] == 42
+    assert checkpoints
+
+
+def test_execute_source_supports_decorated_function():
+    """The rewriter should execute decorated functions correctly."""
+
+    source = """def double_result(function):
+    def wrapper(value):
+        return function(value) * 2
+
+    return wrapper
+
+
+@double_result
+def calculate(value):
+    result = value + 5
+    return result
+
+
+answer = calculate(10)
+"""
+
+    checkpoints = []
+
+    def checkpoint(line, values):
+        checkpoints.append((line, dict(values)))
+
+    namespace = execute_source(
+        source,
+        checkpoint=checkpoint,
+    )
+
+    assert namespace["answer"] == 30
+    assert checkpoints
+
+
+def test_execute_source_supports_list_comprehension():
+    """The rewriter should execute list comprehensions correctly."""
+
+    source = """numbers = [1, 2, 3, 4]
+squares = [number * number for number in numbers]
+"""
+
+    checkpoints = []
+
+    def checkpoint(line, values):
+        checkpoints.append((line, dict(values)))
+
+    namespace = execute_source(
+        source,
+        checkpoint=checkpoint,
+    )
+
+    assert namespace["squares"] == [1, 4, 9, 16]
+    assert checkpoints
