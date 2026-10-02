@@ -19,9 +19,9 @@ def main() -> None:
         required=True,
     )
 
-    # ------------------------------------------------------------------
+    # ==============================================================
     # RUN COMMAND
-    # ------------------------------------------------------------------
+    # ==============================================================
 
     run = commands.add_parser(
         "run",
@@ -51,9 +51,9 @@ def main() -> None:
         help="open the interactive Textual timeline",
     )
 
-    # ------------------------------------------------------------------
+    # ==============================================================
     # INSPECT COMMAND
-    # ------------------------------------------------------------------
+    # ==============================================================
 
     inspect = commands.add_parser(
         "inspect",
@@ -92,24 +92,66 @@ def main() -> None:
         help="show recorded history for a variable",
     )
 
+    inspect.add_argument(
+        "--diff",
+        nargs=2,
+        type=int,
+        metavar=("FROM", "TO"),
+        help="show variable changes between two frames",
+    )
+
+    inspect.add_argument(
+        "--timeline",
+        action="store_true",
+        help="show execution timeline",
+    )
+
     args = parser.parse_args()
 
-    # ------------------------------------------------------------------
+    # ==============================================================
     # INSPECT COMMAND
-    # ------------------------------------------------------------------
+    # ==============================================================
 
     if args.command == "inspect":
         store = TraceStore(args.database)
 
         try:
-            # ----------------------------------------------------------
+            # ------------------------------------------------------
+            # TIMELINE
+            # ------------------------------------------------------
+
+            if args.timeline:
+                frames = list(
+                    store.frames(
+                        scope=args.scope,
+                        event=args.event,
+                    )
+                )
+
+                if not frames:
+                    print("No frames found.")
+                    return
+
+                print("PyChronicle Timeline")
+                print("=" * 72)
+
+                for frame in frames:
+                    print(
+                        f"Frame {frame.id} | "
+                        f"line={frame.line_number} | "
+                        f"event={frame.event} | "
+                        f"scope={frame.scope}"
+                    )
+
+                return
+
+            # ------------------------------------------------------
             # VARIABLE HISTORY
-            # ----------------------------------------------------------
+            # ------------------------------------------------------
 
             if args.variable is not None:
                 changes = store.changes_for(args.variable)
 
-                # Apply scope filtering.
                 if args.scope is not None:
                     changes = [
                         change
@@ -122,7 +164,6 @@ def main() -> None:
                         )
                     ]
 
-                # Apply event filtering.
                 if args.event is not None:
                     changes = [
                         change
@@ -151,9 +192,79 @@ def main() -> None:
 
                 return
 
-            # ----------------------------------------------------------
+            # ------------------------------------------------------
+            # FRAME DIFF
+            # ------------------------------------------------------
+
+            if args.diff is not None:
+                from_frame, to_frame = args.diff
+
+                before = store.state_at(
+                    from_frame,
+                    args.scope,
+                )
+
+                after = store.state_at(
+                    to_frame,
+                    args.scope,
+                )
+
+                print(
+                    f"Changes from Frame "
+                    f"{from_frame} -> {to_frame}"
+                )
+
+                added = {}
+                removed = {}
+                changed = {}
+
+                before_keys = set(before)
+                after_keys = set(after)
+
+                for key in sorted(after_keys - before_keys):
+                    added[key] = after[key]
+
+                for key in sorted(before_keys - after_keys):
+                    removed[key] = before[key]
+
+                for key in sorted(before_keys & after_keys):
+                    if before[key] != after[key]:
+                        changed[key] = (
+                            before[key],
+                            after[key],
+                        )
+
+                if not added and not removed and not changed:
+                    print()
+                    print("No changes.")
+                    return
+
+                if added:
+                    print()
+                    print("Added:")
+                    for key, value in added.items():
+                        print(f"  + {key} = {value}")
+
+                if removed:
+                    print()
+                    print("Removed:")
+                    for key, value in removed.items():
+                        print(f"  - {key} = {value}")
+
+                if changed:
+                    print()
+                    print("Changed:")
+                    for key, (old, new) in changed.items():
+                        print(
+                            f"  ~ {key}: "
+                            f"{old} -> {new}"
+                        )
+
+                return
+
+            # ------------------------------------------------------
             # GET FILTERED FRAMES
-            # ----------------------------------------------------------
+            # ------------------------------------------------------
 
             frames = list(
                 store.frames(
@@ -162,9 +273,9 @@ def main() -> None:
                 )
             )
 
-            # ----------------------------------------------------------
+            # ------------------------------------------------------
             # LIST FRAMES
-            # ----------------------------------------------------------
+            # ------------------------------------------------------
 
             if args.list:
                 if not frames:
@@ -181,19 +292,20 @@ def main() -> None:
 
                 return
 
-            # ----------------------------------------------------------
-            # FRAME REQUIRED WHEN NOT USING --list OR --variable
-            # ----------------------------------------------------------
+            # ------------------------------------------------------
+            # FRAME REQUIRED
+            # ------------------------------------------------------
 
             if args.frame is None:
                 inspect.error(
                     "--frame is required unless "
-                    "--list or --variable is used"
+                    "--list, --variable, --diff, "
+                    "or --timeline is used"
                 )
 
-            # ----------------------------------------------------------
+            # ------------------------------------------------------
             # EVENT FILTER
-            # ----------------------------------------------------------
+            # ------------------------------------------------------
 
             if args.event is not None:
                 matching_frame_ids = {
@@ -212,9 +324,9 @@ def main() -> None:
                     )
                     return
 
-            # ----------------------------------------------------------
+            # ------------------------------------------------------
             # RECONSTRUCT STATE
-            # ----------------------------------------------------------
+            # ------------------------------------------------------
 
             state = store.state_at(
                 args.frame,
@@ -235,9 +347,9 @@ def main() -> None:
 
         return
 
-    # ------------------------------------------------------------------
+    # ==============================================================
     # RUN SCRIPT
-    # ------------------------------------------------------------------
+    # ==============================================================
 
     result = Chronicle(args.db).run_file(
         args.script,
@@ -251,9 +363,9 @@ def main() -> None:
         f"{result.filename.name}."
     )
 
-    # ------------------------------------------------------------------
+    # ==============================================================
     # TUI
-    # ------------------------------------------------------------------
+    # ==============================================================
 
     if args.tui:
         from .tui import launch
