@@ -255,3 +255,29 @@ def test_list_assignments_finds_nested_function_assignments(tmp_path):
         (2, "outer_value", "Assign"),
         (5, "inner_value", "Assign"),
     ]
+
+
+def test_list_boundaries_finds_async_function_and_loop():
+    """The parser should find async function and async loop boundaries."""
+
+    source = """async def fetch_values():
+    async for item in items:
+        print(item)
+"""
+
+    tree = ast.parse(source)
+
+    boundaries = list_boundaries(tree)
+
+    assert boundaries == [
+        BoundaryInfo(
+            line_number=1,
+            boundary_type="function",
+            name="fetch_values",
+        ),
+        BoundaryInfo(
+            line_number=2,
+            boundary_type="loop",
+            name="AsyncFor",
+        ),
+    ]
