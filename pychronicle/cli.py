@@ -8,6 +8,202 @@ from .engine import Chronicle
 from .storage import TraceStore
 
 
+def format_value(value: object) -> str:
+    """Format a value safely for CLI output."""
+    return str(value)
+
+
+def print_timeline(store: TraceStore, scope: str | None, event: str | None) -> None:
+    """Print the recorded execution timeline."""
+    frames = list(
+        store.frames(
+            scope=scope,
+            event=event,
+        )
+    )
+
+    print("PyChronicle Timeline")
+    print("=" * 72)
+
+    if not frames:
+        print("No frames found.")
+        return
+
+    for frame in frames:
+        print(
+            f"Frame {frame.id} | "
+            f"line={frame.line_number} | "
+            f"event={frame.event} | "
+            f"scope={frame.scope}"
+        )
+
+
+def print_variable_history(
+    store: TraceStore,
+    variable: str,
+    scope: str | None,
+    event: str | None,
+) -> None:
+    """Print the recorded history of one variable."""
+    changes = store.changes_for(variable)
+
+    if scope is not None:
+        changes = [
+            change
+            for change in changes
+            if (
+                change["scope"] == scope
+                or change["scope"].startswith(f"{scope}@")
+            )
+        ]
+
+    if event is not None:
+        changes = [
+            change
+            for change in changes
+            if change["event"] == event
+        ]
+
+    print(f"PyChronicle Variable History: {variable}")
+    print("=" * 72)
+
+    if not changes:
+        print(f"No history found for variable '{variable}'.")
+        return
+
+    for change in changes:
+        print(
+            f"Frame {change['id']} | "
+            f"line={change['line_number']} | "
+            f"event={change['event']} | "
+            f"scope={change['scope']}"
+        )
+        print(
+            f"  {variable} = {change['value_json']} "
+            f"(operation={change['operation']})"
+        )
+
+
+def print_state_history(
+    store: TraceStore,
+    variable: str | None,
+    scope: str | None,
+    event: str | None,
+) -> None:
+    """Print reconstructed state at every recorded frame."""
+    frames = list(
+        store.frames(
+            scope=scope,
+            event=event,
+        )
+    )
+
+    print("PyChronicle State History")
+    print("=" * 72)
+
+    if not frames:
+        print("No frames found.")
+        return
+
+    for frame in frames:
+        state = store.state_at(
+            frame.id,
+            scope,
+        )
+
+        if variable is not None:
+            matching = {
+                key: value
+                for key, value in state.items()
+                if (
+                    key == variable
+                    or key.endswith(f"::{variable}")
+                    or key.startswith(f"{variable}::")
+                )
+            }
+
+            if not matching:
+                continue
+
+            state = matching
+
+        print()
+        print(
+            f"Frame {frame.id} | "
+            f"line={frame.line_number} | "
+            f"event={frame.event} | "
+            f"scope={frame.scope}"
+        )
+
+        for key, value in state.items():
+            print(f"  {key} = {format_value(value)}")
+
+
+def print_frame_diff(
+    store: TraceStore,
+    from_frame: int,
+    to_frame: int,
+    scope: str | None,
+) -> None:
+    """Print the state differences between two frames."""
+    before = store.state_at(
+        from_frame,
+        scope,
+    )
+
+    after = store.state_at(
+        to_frame,
+        scope,
+    )
+
+    added = {
+        key: after[key]
+        for key in after.keys() - before.keys()
+    }
+
+    removed = {
+        key: before[key]
+        for key in before.keys() - after.keys()
+    }
+
+    changed = {
+        key: (before[key], after[key])
+        for key in before.keys() & after.keys()
+        if before[key] != after[key]
+    }
+
+    print(
+        f"Changes from Frame {from_frame} -> Frame {to_frame}"
+    )
+
+    if not added and not removed and not changed:
+        print()
+        print("No changes.")
+        return
+
+    if added:
+        print()
+        print("Added:")
+        for key, value in sorted(added.items()):
+            print(f"  + {key} = {format_value(value)}")
+
+    if removed:
+        print()
+        print("Removed:")
+        for key, value in sorted(removed.items()):
+            print(f"  - {key} = {format_value(value)}")
+
+    if changed:
+        print()
+        print("Changed:")
+        for key, (old_value, new_value) in sorted(changed.items()):
+            print(
+                f"  ~ {key}: "
+                f"{format_value(old_value)} -> "
+                f"{format_value(new_value)}"
+            )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="pychronicle",
@@ -19,9 +215,9 @@ def main() -> None:
         required=True,
     )
 
-    # ==============================================================
+    # ------------------------------------------------------------------
     # RUN COMMAND
-    # ==============================================================
+    # ------------------------------------------------------------------
 
     run = commands.add_parser(
         "run",
@@ -51,9 +247,9 @@ def main() -> None:
         help="open the interactive Textual timeline",
     )
 
-    # ==============================================================
+    # ------------------------------------------------------------------
     # INSPECT COMMAND
-    # ==============================================================
+    # ------------------------------------------------------------------
 
     inspect = commands.add_parser(
         "inspect",
@@ -106,165 +302,78 @@ def main() -> None:
         help="show execution timeline",
     )
 
+    inspect.add_argument(
+        "--history",
+        action="store_true",
+        help="show reconstructed state at every frame",
+    )
+
     args = parser.parse_args()
 
-    # ==============================================================
+    # ------------------------------------------------------------------
     # INSPECT COMMAND
-    # ==============================================================
+    # ------------------------------------------------------------------
 
     if args.command == "inspect":
         store = TraceStore(args.database)
 
         try:
-            # ------------------------------------------------------
-            # TIMELINE
-            # ------------------------------------------------------
-
-            if args.timeline:
-                frames = list(
-                    store.frames(
-                        scope=args.scope,
-                        event=args.event,
-                    )
-                )
-
-                if not frames:
-                    print("No frames found.")
-                    return
-
-                print("PyChronicle Timeline")
-                print("=" * 72)
-
-                for frame in frames:
-                    print(
-                        f"Frame {frame.id} | "
-                        f"line={frame.line_number} | "
-                        f"event={frame.event} | "
-                        f"scope={frame.scope}"
-                    )
-
-                return
-
-            # ------------------------------------------------------
+            # ----------------------------------------------------------
             # VARIABLE HISTORY
-            # ------------------------------------------------------
+            # ----------------------------------------------------------
 
-            if args.variable is not None:
-                changes = store.changes_for(args.variable)
-
-                if args.scope is not None:
-                    changes = [
-                        change
-                        for change in changes
-                        if (
-                            change["scope"] == args.scope
-                            or change["scope"].startswith(
-                                f"{args.scope}@"
-                            )
-                        )
-                    ]
-
-                if args.event is not None:
-                    changes = [
-                        change
-                        for change in changes
-                        if change["event"] == args.event
-                    ]
-
-                if not changes:
-                    print(
-                        f"No history found for variable "
-                        f"'{args.variable}'."
-                    )
-                    return
-
-                print(f"Variable: {args.variable}")
-
-                for change in changes:
-                    print(
-                        f"Frame {change['id']}: "
-                        f"line={change['line_number']}, "
-                        f"event={change['event']}, "
-                        f"scope={change['scope']}, "
-                        f"value={change['value_json']}, "
-                        f"operation={change['operation']}"
-                    )
-
+            if args.variable is not None and not args.history:
+                print_variable_history(
+                    store,
+                    args.variable,
+                    args.scope,
+                    args.event,
+                )
                 return
 
-            # ------------------------------------------------------
+            # ----------------------------------------------------------
             # FRAME DIFF
-            # ------------------------------------------------------
+            # ----------------------------------------------------------
 
             if args.diff is not None:
                 from_frame, to_frame = args.diff
 
-                before = store.state_at(
+                print_frame_diff(
+                    store,
                     from_frame,
-                    args.scope,
-                )
-
-                after = store.state_at(
                     to_frame,
                     args.scope,
                 )
-
-                print(
-                    f"Changes from Frame "
-                    f"{from_frame} -> {to_frame}"
-                )
-
-                added = {}
-                removed = {}
-                changed = {}
-
-                before_keys = set(before)
-                after_keys = set(after)
-
-                for key in sorted(after_keys - before_keys):
-                    added[key] = after[key]
-
-                for key in sorted(before_keys - after_keys):
-                    removed[key] = before[key]
-
-                for key in sorted(before_keys & after_keys):
-                    if before[key] != after[key]:
-                        changed[key] = (
-                            before[key],
-                            after[key],
-                        )
-
-                if not added and not removed and not changed:
-                    print()
-                    print("No changes.")
-                    return
-
-                if added:
-                    print()
-                    print("Added:")
-                    for key, value in added.items():
-                        print(f"  + {key} = {value}")
-
-                if removed:
-                    print()
-                    print("Removed:")
-                    for key, value in removed.items():
-                        print(f"  - {key} = {value}")
-
-                if changed:
-                    print()
-                    print("Changed:")
-                    for key, (old, new) in changed.items():
-                        print(
-                            f"  ~ {key}: "
-                            f"{old} -> {new}"
-                        )
-
                 return
 
-            # ------------------------------------------------------
+            # ----------------------------------------------------------
+            # TIMELINE
+            # ----------------------------------------------------------
+
+            if args.timeline:
+                print_timeline(
+                    store,
+                    args.scope,
+                    args.event,
+                )
+                return
+
+            # ----------------------------------------------------------
+            # STATE HISTORY
+            # ----------------------------------------------------------
+
+            if args.history:
+                print_state_history(
+                    store,
+                    args.variable,
+                    args.scope,
+                    args.event,
+                )
+                return
+
+            # ----------------------------------------------------------
             # GET FILTERED FRAMES
-            # ------------------------------------------------------
+            # ----------------------------------------------------------
 
             frames = list(
                 store.frames(
@@ -273,9 +382,9 @@ def main() -> None:
                 )
             )
 
-            # ------------------------------------------------------
+            # ----------------------------------------------------------
             # LIST FRAMES
-            # ------------------------------------------------------
+            # ----------------------------------------------------------
 
             if args.list:
                 if not frames:
@@ -292,20 +401,20 @@ def main() -> None:
 
                 return
 
-            # ------------------------------------------------------
+            # ----------------------------------------------------------
             # FRAME REQUIRED
-            # ------------------------------------------------------
+            # ----------------------------------------------------------
 
             if args.frame is None:
                 inspect.error(
                     "--frame is required unless "
                     "--list, --variable, --diff, "
-                    "or --timeline is used"
+                    "--timeline, or --history is used"
                 )
 
-            # ------------------------------------------------------
-            # EVENT FILTER
-            # ------------------------------------------------------
+            # ----------------------------------------------------------
+            # EVENT FILTER VALIDATION
+            # ----------------------------------------------------------
 
             if args.event is not None:
                 matching_frame_ids = {
@@ -324,9 +433,9 @@ def main() -> None:
                     )
                     return
 
-            # ------------------------------------------------------
+            # ----------------------------------------------------------
             # RECONSTRUCT STATE
-            # ------------------------------------------------------
+            # ----------------------------------------------------------
 
             state = store.state_at(
                 args.frame,
@@ -347,9 +456,9 @@ def main() -> None:
 
         return
 
-    # ==============================================================
+    # ------------------------------------------------------------------
     # RUN SCRIPT
-    # ==============================================================
+    # ------------------------------------------------------------------
 
     result = Chronicle(args.db).run_file(
         args.script,
@@ -363,9 +472,9 @@ def main() -> None:
         f"{result.filename.name}."
     )
 
-    # ==============================================================
+    # ------------------------------------------------------------------
     # TUI
-    # ==============================================================
+    # ------------------------------------------------------------------
 
     if args.tui:
         from .tui import launch
