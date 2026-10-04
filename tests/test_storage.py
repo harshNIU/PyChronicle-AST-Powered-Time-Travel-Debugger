@@ -1,3 +1,7 @@
+import sqlite3
+
+import pytest
+
 from pychronicle.storage import TraceStore
 
 
@@ -19,6 +23,7 @@ def test_trace_store_records_and_reconstructs_state():
     assert state["x"] == 100
 
     store.close()
+
 
 def test_trace_store_reconstructs_deleted_variable():
     store = TraceStore()
@@ -54,3 +59,25 @@ def test_trace_store_reconstructs_deleted_variable():
     assert len(delete_changes) == 1
 
     store.close()
+
+
+def test_trace_store_enforces_foreign_keys():
+    store = TraceStore()
+
+    try:
+        with pytest.raises(sqlite3.IntegrityError):
+            store.connection.execute(
+                """
+                INSERT INTO changes (
+                    frame_id,
+                    scope,
+                    variable_name,
+                    value_json,
+                    operation
+                )
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (999, "<module>", "x", "100", "set"),
+            )
+    finally:
+        store.close()
