@@ -707,3 +707,110 @@ def test_cli_inspect_supports_function_scope(
 
     assert state["x"] == 7
     assert state["result"] == 21
+
+
+def test_cli_history_reconstructs_state_at_every_frame(
+    tmp_path,
+    monkeypatch,
+    capsys,
+):
+    """CLI history should print reconstructed state for every frame."""
+    script = tmp_path / "history_example.py"
+    database = tmp_path / "history.sqlite"
+
+    script.write_text(
+        "x = 10\n"
+        "y = 20\n"
+        "z = 30\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "pychronicle",
+            "run",
+            str(script),
+            "--db",
+            str(database),
+        ],
+    )
+
+    main()
+    capsys.readouterr()
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "pychronicle",
+            "inspect",
+            str(database),
+            "--history",
+        ],
+    )
+
+    main()
+
+    output = capsys.readouterr().out
+
+    assert "PyChronicle State History" in output
+    assert "Frame" in output
+    assert "x = 10" in output
+    assert "y = 20" in output
+    assert "z = 30" in output
+
+
+def test_cli_history_filters_variable(
+    tmp_path,
+    monkeypatch,
+    capsys,
+):
+    """CLI history --variable should show only the requested variable."""
+    script = tmp_path / "variable_history.py"
+    database = tmp_path / "variable_history.sqlite"
+
+    script.write_text(
+        "x = 10\n"
+        "y = 20\n"
+        "x = 30\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "pychronicle",
+            "run",
+            str(script),
+            "--db",
+            str(database),
+        ],
+    )
+
+    main()
+    capsys.readouterr()
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "pychronicle",
+            "inspect",
+            str(database),
+            "--history",
+            "--variable",
+            "x",
+        ],
+    )
+
+    main()
+
+    output = capsys.readouterr().out
+
+    assert "PyChronicle State History" in output
+    assert "x = 10" in output
+    assert "x = 30" in output
+    assert "y = 20" not in output
