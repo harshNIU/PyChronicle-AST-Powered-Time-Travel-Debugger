@@ -47,9 +47,9 @@ def launch(store: TraceStore, source_path: Path) -> None:
             self.source_lines = source_path.read_text(encoding="utf-8").splitlines()
 
                 for number, line in enumerate(self.source_lines, start=1):
-                    code_widget.write(f"{number:4} | {line}")
+        code_widget.write(f"{number:4} | {line}")
             self._render_frame(self.current_index)
-       def _render_code(self, current_line: int) -> None:
+        def _render_code(self, current_line: int) -> None:
             """Display source code and highlight the current execution line."""
             code_widget = self.query_one("#code", RichLog)
             code_widget.clear()
