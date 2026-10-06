@@ -11,8 +11,17 @@ from ..storage import TraceStore
 def launch(store: TraceStore, source_path: Path) -> None:
     try:
         from textual.app import App, ComposeResult
+        from rich.text import Text
         from textual.containers import Horizontal
-        from textual.widgets import Button, Footer, Header, Input, Label, RichLog, Static
+        from textual.widgets import (
+            Button,
+            Footer,
+            Header,
+            Input,
+            Label,
+            RichLog,
+            Static,
+        )
     except ImportError as error:
         raise SystemExit(
             "The TUI requires Textual. Install it with: pip install -e .[tui]"
@@ -30,7 +39,12 @@ def launch(store: TraceStore, source_path: Path) -> None:
             yield Header(show_clock=True)
 
             with Horizontal():
-                yield RichLog(id="code", wrap=True, highlight=True, markup=False)
+                yield RichLog(
+                    id="code",
+                    wrap=True,
+                    highlight=True,
+                    markup=False,
+                )
                 yield Static(id="state")
 
             with Horizontal(id="timeline_bar"):
@@ -43,18 +57,31 @@ def launch(store: TraceStore, source_path: Path) -> None:
 
         def on_mount(self) -> None:
             code_widget = self.query_one("#code", RichLog)
-            source_lines = source_path.read_text(encoding="utf-8").splitlines()
-
-            for number, line in enumerate(source_lines, start=1):
-                code_widget.write(f"{number:4} | {line}")
+            self.source_lines = source_path.read_text(
+                encoding="utf-8"
+            ).splitlines()
 
             self._render_frame(self.current_index)
+
+        def _render_code(self, current_line: int) -> None:
+            """Display source code and highlight the current execution line."""
+            code_widget = self.query_one("#code", RichLog)
+            code_widget.clear()
+
+            for number, line in enumerate(self.source_lines, start=1):
+                text = Text(f"{number:4} | {line}")
+
+                if number == current_line:
+                    text.stylize("bold black on yellow")
+
+                code_widget.write(text)
 
         def on_button_pressed(self, event: Button.Pressed) -> None:
             if event.button.id == "prev_frame":
                 if self.current_index > 1:
                     self.current_index -= 1
                     self._update_frame()
+
             elif event.button.id == "next_frame":
                 if self.current_index < total_frames:
                     self.current_index += 1
@@ -63,16 +90,20 @@ def launch(store: TraceStore, source_path: Path) -> None:
         def on_input_changed(self, event: Input.Changed) -> None:
             if event.input.id != "frame_input":
                 return
+
             try:
                 value = int(event.value)
             except ValueError:
                 return
+
             if 1 <= value <= total_frames and value != self.current_index:
                 self.current_index = value
                 self._render_frame(value)
 
         def _update_frame(self) -> None:
-            self.query_one("#frame_input", Input).value = str(self.current_index)
+            self.query_one("#frame_input", Input).value = str(
+                self.current_index
+            )
             self._render_frame(self.current_index)
 
         def _render_frame(self, index: int) -> None:
@@ -83,7 +114,19 @@ def launch(store: TraceStore, source_path: Path) -> None:
                 return
 
             frame = frames[index - 1]
+
+            self._render_code(frame.line_number)
+
             state = store.state_at(frame.id, frame.scope)
+
+            variable_text = (
+                "\n".join(
+                    f"  {name} = {value!r}"
+                    for name, value in state.items()
+                )
+                if state
+                else "  (no variables)"
+            )
 
             state_widget.update(
                 f"Frame: {index} / {total_frames}\n"
@@ -91,7 +134,7 @@ def launch(store: TraceStore, source_path: Path) -> None:
                 f"Event: {frame.event}\n"
                 f"Scope: {frame.scope}\n\n"
                 f"Variables:\n"
-                f"{json.dumps(state, indent=2, default=str)}"
+                f"{variable_text}"
             )
 
     ChronicleApp().run()
