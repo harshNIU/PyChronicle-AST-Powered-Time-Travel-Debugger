@@ -1,8 +1,12 @@
+import sqlite3
+import pytest
+
 from storage.db import (
     init_db,
     save_event,
     get_events,
     clear_events,
+    get_connection,
 )
 
 
@@ -96,4 +100,30 @@ def test_clear_events_removes_all_events():
 
     clear_events()
 
-    assert get_events() == []    
+    assert get_events() == []
+
+def test_foreign_key_constraint_is_enabled():
+    init_db()
+    clear_events()
+
+    with get_connection() as connection:
+        with pytest.raises(sqlite3.IntegrityError):
+            connection.execute(
+                """
+                INSERT INTO changes (
+                    frame_id,
+                    scope,
+                    variable_name,
+                    value_json,
+                    operation
+                )
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    999999,
+                    "global",
+                    "invalid",
+                    "1",
+                    "set",
+                ),
+            )

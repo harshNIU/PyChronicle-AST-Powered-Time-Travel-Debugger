@@ -47,10 +47,10 @@ class TimelineViewer:
             return
 
         print("PyChronicle Timeline Viewer")
-        print("Commands: [n]ext, [p]revious, [q]uit\n")
+        print("Commands: [n]ext, [p]revious, [r]eset, [l]ast, [j]ump to step, [s]ource, [h]elp, [q]uit\n")
 
         self.show_current_step()
-
+        self.show_position()
         while True:
             command = input("\n> ").strip().lower()
 
@@ -58,24 +58,107 @@ class TimelineViewer:
                 if self.current_index < len(self.steps) - 1:
                     self.current_index += 1
                     self.show_current_step()
+                    self.show_position()
                 else:
                     print("Already at the last step.")
 
             elif command == "p":
-                if self.current_index > 0:
+               if self.current_index > 0:
                     self.current_index -= 1
                     self.show_current_step()
+                    self.show_position()
                 else:
                     print("Already at the first step.")
+            elif command == "s":
+                source_file = input("Enter source file path: ").strip()
+                _, line_number, _ = self.steps[self.current_index]
+                self.show_source_line(source_file, line_number)
+            elif command == "r":
+                self.reset()
+            elif command == "l":
+                self.current_index = len(self.steps) - 1
+                self.show_current_step()
+                self.show_position()
+            elif command == "g":
+                try:
+                    step = int(input("Enter step number: ").strip())
+                except ValueError:
+                    print("Please enter a valid number.")
+                    continue
 
+                if 1 <= step <= len(self.steps):
+                    self.current_index = step - 1
+                    self.show_current_step()
+                    self.show_position()
+                else:
+                    print(f"Enter a step between 1 and {len(self.steps)}.")
+            elif command == "j":
+              try:
+                target = int(input("Enter step number: ").strip())
+                except ValueError:
+                print("Please enter a valid number.")
+                continue
+
+                if 1 <= target <= len(self.steps):
+                    self.current_index = target - 1
+                    self.show_current_step()
+                    self.show_position()
+                else:
+                    print(f"Enter a step between 1 and {len(self.steps)}.")
+            elif command in ("h", "help"):
+                print("\nAvailable commands:")
+                print("n - Next step")
+                print("p - Previous step")
+                print("j - Jump to a specific step")
+                print("l - Go to the last step")
+                print("r - Reset to the first step")
+                print("s - Show source code")
+                print("h - Show this help")
+                print("q - Quit")
             elif command == "q":
                 print("Exiting timeline viewer.")
                 break
 
             else:
-                print("Unknown command. Use n, p, or q.")
+                print("Unknown command. Use n, p, r, l, g, s, j, h, or q.")
+    def show_source_line(self, source_file, line_number):
+        """Display the current source line from the traced program."""
+        if not os.path.exists(source_file):
+            print(f"Source file not found: {source_file}")
+            return
 
+        with open(source_file, "r", encoding="utf-8") as file:
+            lines = file.readlines()
+
+        if line_number < 1 or line_number > len(lines):
+            print(f"Invalid source line: {line_number}")
+            return
+
+        print("\nSource Code (current line with context):")
+        start = max(1, line_number - 3)
+        end = min(len(lines), line_number + 3)
+        for index, line in enumerate(lines[start - 1:end], start=start):
+            marker = ">>" if index == line_number else "  "
+            print(f"{marker} {index:4}: {line.rstrip()}")
+    def show_position(self):
+        """Display the current position in the execution timeline."""
+        total = len(self.steps)
+
+        if total == 0:
+            print("Timeline is empty.")
+            return
+
+        print(f"Timeline position: {self.current_index + 1} / {total}")
+    def reset(self):
+    """Reset timeline browsing to the first execution step."""
+        if not self.steps:
+            print("Timeline is empty.")
+    return
+      self.current_index = 0
+      self.show_current_step()
+      self.show_position()
 
 if __name__ == "__main__":
     viewer = TimelineViewer()
     viewer.run()
+  

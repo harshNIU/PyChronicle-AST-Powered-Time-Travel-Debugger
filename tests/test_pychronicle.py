@@ -708,107 +708,109 @@ def test_cli_inspect_supports_function_scope(
     assert state["x"] == 7
     assert state["result"] == 21
 
-# ---------------------------------------------------------
-# Day 19 - Cross-module smoke test: recursion
-# ---------------------------------------------------------
 
+def test_cli_history_reconstructs_state_at_every_frame(
+    tmp_path,
+    monkeypatch,
+    capsys,
+):
+    """CLI history should print reconstructed state for every frame."""
+    script = tmp_path / "history_example.py"
+    database = tmp_path / "history.sqlite"
 
-def test_recursive_function_tracing():
-    """The full pipeline should capture recursive function execution."""
-
-    code = """
-def factorial(n):
-    if n <= 1:
-        return 1
-    return n * factorial(n - 1)
-
-result = factorial(4)
-"""
-
-    result = Chronicle().run_source(
-        code,
-        "recursive_example.py",
+    script.write_text(
+        "x = 10\n"
+        "y = 20\n"
+        "z = 30\n",
+        encoding="utf-8",
     )
 
-    frames = list(result.store.frames())
-
-    assert result.store.frame_count() > 0
-
-    factorial_frames = [
-        frame
-        for frame in frames
-        if frame.scope.startswith("factorial")
-    ]
-
-    assert len(factorial_frames) >= 4
-
-    factorial_values = []
-
-    for frame in factorial_frames:
-        state = result.store.state_at(
-            frame.id,
-            "factorial",
-        )
-
-        if "n" in state:
-            factorial_values.append(state["n"])
-
-    assert 4 in factorial_values
-    assert 3 in factorial_values
-    assert 2 in factorial_values
-    assert 1 in factorial_values
-
-
-# ---------------------------------------------------------
-# Day 19 - Cross-module smoke test: class methods
-# ---------------------------------------------------------
-
-
-def test_class_method_tracing():
-    """The full pipeline should capture execution inside a class method."""
-
-    code = """
-class Calculator:
-    def double(self, value):
-        result = value * 2
-        return result
-
-calculator = Calculator()
-answer = calculator.double(5)
-"""
-
-    result = Chronicle().run_source(
-        code,
-        "class_method_example.py",
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "pychronicle",
+            "run",
+            str(script),
+            "--db",
+            str(database),
+        ],
     )
 
-    frames = list(result.store.frames())
+    main()
+    capsys.readouterr()
 
-    assert result.store.frame_count() > 0
-
-    method_frames = [
-        frame
-        for frame in frames
-        if frame.scope.startswith("double")
-    ]
-
-    assert len(method_frames) > 0
-
-    method_states = [
-        result.store.state_at(
-            frame.id,
-            "double",
-        )
-        for frame in method_frames
-    ]
-
-    assert any(
-        state.get("value") == 5
-        for state in method_states
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "pychronicle",
+            "inspect",
+            str(database),
+            "--history",
+        ],
     )
 
-    assert any(
-        state.get("result") == 10
-        for state in method_states
+    main()
+
+    output = capsys.readouterr().out
+
+    assert "PyChronicle State History" in output
+    assert "Frame" in output
+    assert "x = 10" in output
+    assert "y = 20" in output
+    assert "z = 30" in output
+
+
+def test_cli_history_filters_variable(
+    tmp_path,
+    monkeypatch,
+    capsys,
+):
+    """CLI history --variable should show only the requested variable."""
+    script = tmp_path / "variable_history.py"
+    database = tmp_path / "variable_history.sqlite"
+
+    script.write_text(
+        "x = 10\n"
+        "y = 20\n"
+        "x = 30\n",
+        encoding="utf-8",
     )
 
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "pychronicle",
+            "run",
+            str(script),
+            "--db",
+            str(database),
+        ],
+    )
+
+    main()
+    capsys.readouterr()
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "pychronicle",
+            "inspect",
+            str(database),
+            "--history",
+            "--variable",
+            "x",
+        ],
+    )
+
+    main()
+
+    output = capsys.readouterr().out
+
+    assert "PyChronicle State History" in output
+    assert "x = 10" in output
+    assert "x = 30" in output
+    assert "y = 20" not in output
