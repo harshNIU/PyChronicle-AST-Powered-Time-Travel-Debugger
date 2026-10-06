@@ -1,5 +1,8 @@
+import atexit
 import sqlite3
+from contextlib import contextmanager
 from pathlib import Path
+
 
 from storage.migrations import migrate
 
@@ -7,10 +10,41 @@ from storage.migrations import migrate
 DB_PATH = Path(__file__).parent / "pychronicle.db"
 SCHEMA_PATH = Path(__file__).parent / "schema.sql"
 
+_CONNECTION_POOL: list[sqlite3.Connection] = []
+_MAX_POOL_SIZE = 5
+
+
+def _create_connection() -> sqlite3.Connection:
+    """Create a database connection with foreign-key enforcement enabled."""
+    connection = sqlite3.connect(DB_PATH)
+    connection.execute("PRAGMA foreign_keys = ON")
+    return connection
+
+
+@contextmanager
+def get_connection():
+    """Provide a reusable database connection and return it to the pool."""
+    if _CONNECTION_POOL:
+        connection = _CONNECTION_POOL.pop()
+    else:
+        connection = _create_connection()
+
+    try:
+        yield connection
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        if len(_CONNECTION_POOL) < _MAX_POOL_SIZE:
+            _CONNECTION_POOL.append(connection)
+        else:
+            connection.close()
+
 
 def init_db() -> None:
     """Create the delta-storage database tables if they do not exist."""
-    with sqlite3.connect(DB_PATH) as connection:
+    with get_connection() as connection:
         with open(SCHEMA_PATH, "r") as schema_file:
             schema = schema_file.read()
 
@@ -18,11 +52,17 @@ def init_db() -> None:
         migrate(connection)
 
 
-def get_connection() -> sqlite3.Connection:
-    """Return a connection with foreign-key enforcement enabled."""
-    connection = sqlite3.connect(DB_PATH)
-    connection.execute("PRAGMA foreign_keys = ON")
-    return connection
+def close_connections() -> None:
+    """Close all idle database connections before the application exits."""
+    while _CONNECTION_POOL:
+        connection = _CONNECTION_POOL.pop()
+        try:
+            connection.close()
+        except sqlite3.Error:
+            pass
+
+
+atexit.register(close_connections)
 
 
 def save_event(
