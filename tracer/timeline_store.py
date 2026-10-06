@@ -9,8 +9,13 @@ Day 12-15 improvements:
 - Adds query helpers (get_steps_by_function, get_steps_by_type,
   get_exceptions) so a saved timeline can be filtered without loading
   and re-scanning the entire history in Python
+
+Day 17 improvement:
+- get_variable_history(name) answers the core "time travel" question:
+  what was this variable at each point during the run?
 """
 
+import ast
 import sqlite3
 
 
@@ -102,6 +107,43 @@ class TimelineStore:
 
     def get_exceptions(self):
         return self.get_steps_by_type("exception")
+
+    def get_variable_history(self, variable_name):
+        """
+        Return every point where variable_name changed during the run, in
+        order, as a list of dicts with step_index, function_name,
+        line_number, source_text and value.
+
+        Scans "line" steps and parses their stored changed_vars text (a
+        Python dict literal), since that's the only place variable values
+        are recorded. Steps whose changed_vars can't be parsed are
+        skipped rather than raising, since this is a read-only query.
+        """
+        rows = self.get_steps_by_type("line")
+        history = []
+
+        for row in rows:
+            (step_index, event_type, function_name, depth, line_number,
+             changed_vars, return_value, exception_type, exception_message, source_text) = row
+
+            if not changed_vars:
+                continue
+
+            try:
+                changes = ast.literal_eval(changed_vars)
+            except (ValueError, SyntaxError):
+                continue
+
+            if variable_name in changes:
+                history.append({
+                    "step_index": step_index,
+                    "function_name": function_name,
+                    "line_number": line_number,
+                    "source_text": source_text,
+                    "value": changes[variable_name],
+                })
+
+        return history
 
     def clear(self):
         self.conn.execute("DELETE FROM execution_steps")
