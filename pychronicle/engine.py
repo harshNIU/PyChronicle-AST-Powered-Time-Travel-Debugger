@@ -8,8 +8,7 @@ from pathlib import Path
 from types import FrameType
 from typing import Any
 
-from .instrumentation import Assignment, find_assignments
-from ast_engine.rewriter import rewrite_source
+from .instrumentation import Assignment, find_assignments, instrument_source
 from .storage import TraceStore
 
 
@@ -51,7 +50,12 @@ class Chronicle:
             self._visible(dict(values)),
         )
 
-    def _tracer(self, frame: FrameType, event: str, arg: Any):
+    def _tracer(
+        self,
+        frame: FrameType,
+        event: str,
+        arg: Any,
+    ):
         if frame.f_code.co_filename != self._target:
             return self._tracer
 
@@ -70,9 +74,22 @@ class Chronicle:
         path: str | Path,
         argv: list[str] | None = None,
     ) -> TraceResult:
+        """Execute a Python file and record its execution timeline.
+
+        ``utf-8-sig`` accepts normal UTF-8 files as well as UTF-8 files
+        containing a BOM, which is commonly produced by Windows tools.
+        """
+
         target = Path(path).resolve()
-        source = target.read_text(encoding="utf-8")
-        return self.run_source(source, target, argv)
+        source = target.read_text(
+            encoding="utf-8-sig",
+        )
+
+        return self.run_source(
+            source,
+            target,
+            argv,
+        )
 
     def run_source(
         self,
@@ -83,19 +100,29 @@ class Chronicle:
         path = Path(filename).resolve()
         self._target = str(path)
 
-        assignments = find_assignments(source, str(path))
+        assignments = find_assignments(
+            source,
+            str(path),
+        )
 
-        # Day 16: use the AST rewriter as the handoff into the execution engine.
-        tree = rewrite_source(source, path)
-        code = compile(tree, str(path), "exec")
+        code = compile(
+            instrument_source(
+                source,
+                str(path),
+            ),
+            str(path),
+            "exec",
+        )
 
         def ast_checkpoint(
             line: int,
             values: dict[str, Any],
         ) -> None:
-            # The hook is called directly by instrumented user code, so its caller
-            # is the target frame whose scope must match sys.settrace's scope.
+            # The hook is called directly by instrumented user code,
+            # so its caller is the target frame whose scope must match
+            # sys.settrace's scope.
             target_frame = sys._getframe(1)
+
             self._capture(
                 line,
                 values,
@@ -110,15 +137,30 @@ class Chronicle:
             "__pychronicle_checkpoint__": ast_checkpoint,
         }
 
-        previous_trace, previous_argv = sys.gettrace(), sys.argv
-        sys.argv = [str(path), *(argv or [])]
+        previous_trace = sys.gettrace()
+        previous_argv = sys.argv
+
+        sys.argv = [
+            str(path),
+            *(argv or []),
+        ]
 
         try:
             sys.settrace(self._tracer)
-            exec(code, namespace, namespace)
+
+            exec(
+                code,
+                namespace,
+                namespace,
+            )
+
         finally:
             sys.settrace(previous_trace)
             sys.argv = previous_argv
             self.store.flush()
 
-        return TraceResult(self.store, assignments, path)
+        return TraceResult(
+            self.store,
+            assignments,
+            path,
+        )
