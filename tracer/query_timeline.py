@@ -7,6 +7,11 @@ Usage:
     python3 tracer/query_timeline.py --db timeline.db --type exception
     python3 tracer/query_timeline.py --db timeline.db --exceptions
     python3 tracer/query_timeline.py --db timeline.db --summary
+    python3 tracer/query_timeline.py --db timeline.db --variable total
+
+Day 17 improvement:
+- --variable NAME prints how a single variable's value changed over the
+  entire run, in order: the core "time travel" question.
 """
 
 import argparse
@@ -51,6 +56,18 @@ def print_summary(rows):
         print(f"  {format_row(row)}")
 
 
+def print_variable_history(history, variable_name):
+    if not history:
+        print(f"No recorded changes for variable '{variable_name}'.")
+        return
+
+    print(f"--- History of '{variable_name}' ---")
+    for entry in history:
+        source = f"  # {entry['source_text']}" if entry["source_text"] else ""
+        print(f"[{entry['step_index']}] {entry['function_name']}() line {entry['line_number']}: "
+              f"{variable_name} = {entry['value']}{source}")
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Query a saved PyChronicle timeline.")
     parser.add_argument("--db", default="timeline.db", help="timeline database to read (default: timeline.db)")
@@ -58,6 +75,7 @@ def main(argv=None):
     parser.add_argument("--type", choices=["call", "line", "return", "exception"], help="show only steps of this event type")
     parser.add_argument("--exceptions", action="store_true", help="shortcut for --type exception")
     parser.add_argument("--summary", action="store_true", help="print an aggregate summary instead of individual steps")
+    parser.add_argument("--variable", help="show how this variable's value changed over the whole run")
     args = parser.parse_args(argv)
 
     if not os.path.exists(args.db):
@@ -66,6 +84,11 @@ def main(argv=None):
 
     store = TimelineStore(args.db)
     try:
+        if args.variable:
+            history = store.get_variable_history(args.variable)
+            print_variable_history(history, args.variable)
+            return 0
+
         if args.function:
             rows = store.get_steps_by_function(args.function)
         elif args.exceptions or args.type == "exception":

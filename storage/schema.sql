@@ -16,9 +16,6 @@ CREATE TABLE IF NOT EXISTS changes (
     FOREIGN KEY (frame_id) REFERENCES frames(id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_changes_frame
-ON changes(frame_id);
-
 CREATE INDEX IF NOT EXISTS idx_changes_variable
 ON changes(variable_name, frame_id);
 
