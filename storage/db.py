@@ -1,8 +1,9 @@
+"""SQLite state storage and connection management for PyChronicle."""
+
 import atexit
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
-
 
 from storage.migrations import migrate
 
@@ -24,6 +25,7 @@ def _create_connection() -> sqlite3.Connection:
 @contextmanager
 def get_connection():
     """Provide a reusable database connection and return it to the pool."""
+    # Reuse an idle connection when one is available.
     if _CONNECTION_POOL:
         connection = _CONNECTION_POOL.pop()
     else:
@@ -36,6 +38,7 @@ def get_connection():
         connection.rollback()
         raise
     finally:
+        # Keep only a small number of idle connections for reuse.
         if len(_CONNECTION_POOL) < _MAX_POOL_SIZE:
             _CONNECTION_POOL.append(connection)
         else:
@@ -62,6 +65,7 @@ def close_connections() -> None:
             pass
 
 
+# Close pooled connections automatically when Python exits.
 atexit.register(close_connections)
 
 
