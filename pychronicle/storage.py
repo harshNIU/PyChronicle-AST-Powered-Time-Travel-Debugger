@@ -22,7 +22,10 @@ class Frame:
 class TraceStore:
     """Store only changed values; reconstruct a frame by replaying its deltas."""
 
-    def __init__(self, database: str | Path = ":memory:") -> None:
+    def __init__(
+        self,
+        database: str | Path = ":memory:",
+    ) -> None:
         self.connection = sqlite3.connect(str(database))
         self.connection.execute("PRAGMA foreign_keys = ON")
         self.connection.row_factory = sqlite3.Row
@@ -71,7 +74,11 @@ class TraceStore:
                 default=repr,
                 ensure_ascii=False,
             )
-        except (TypeError, ValueError, OverflowError):
+        except (
+            TypeError,
+            ValueError,
+            OverflowError,
+        ):
             return json.dumps(
                 repr(value),
                 ensure_ascii=False,
@@ -95,7 +102,9 @@ class TraceStore:
             if candidate_scope == scope
         }
 
-        changes: list[tuple[str, str | None, str]] = []
+        changes: list[
+            tuple[str, str | None, str]
+        ] = []
 
         for name, value in encoded.items():
             if self._last.get((scope, name)) != value:
@@ -169,15 +178,31 @@ class TraceStore:
         scope: str | None = None,
         event: str | None = None,
     ) -> Iterator[Frame]:
-        """Return recorded frames, optionally filtered by scope and event."""
+        """Return recorded frames, optionally filtered by scope and event.
+
+        A short scope such as ``factorial`` also matches recorded scopes
+        such as ``factorial@1``. An exact scope such as ``factorial@1``
+        continues to match only that scope.
+        """
 
         sql = "SELECT * FROM frames"
         conditions: list[str] = []
         args: list[str] = []
 
         if scope is not None:
-            conditions.append("scope = ?")
-            args.append(scope)
+            if "@" in scope:
+                conditions.append("scope = ?")
+                args.append(scope)
+            else:
+                conditions.append(
+                    "(scope = ? OR scope LIKE ?)"
+                )
+                args.extend(
+                    [
+                        scope,
+                        f"{scope}@%",
+                    ]
+                )
 
         if event is not None:
             conditions.append("event = ?")

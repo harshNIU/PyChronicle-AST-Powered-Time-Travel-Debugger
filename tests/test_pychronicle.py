@@ -814,3 +814,59 @@ def test_cli_history_filters_variable(
     assert "x = 10" in output
     assert "x = 30" in output
     assert "y = 20" not in output
+
+
+def test_cli_run_handles_utf8_bom_source_file(
+    tmp_path,
+    monkeypatch,
+    capsys,
+):
+    """CLI run should execute UTF-8 files containing a BOM."""
+
+    script = tmp_path / "bom_example.py"
+    database = tmp_path / "bom.sqlite"
+
+    script.write_bytes(
+        b"\xef\xbb\xbf"
+        b"x = 10\n"
+        b"y = 20\n"
+        b"x = x + y\n"
+    )
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "pychronicle",
+            "run",
+            str(script),
+            "--db",
+            str(database),
+        ],
+    )
+
+    main()
+
+    output = capsys.readouterr().out
+
+    assert "Recorded" in output
+    assert "delta frames" in output
+    assert database.exists()
+
+    from pychronicle.storage import TraceStore
+
+    store = TraceStore(database)
+
+    assert store.frame_count() > 0
+
+    last_frame = list(store.frames())[-1]
+
+    state = store.state_at(
+        last_frame.id,
+        "<module>",
+    )
+
+    assert state["x"] == 30
+    assert state["y"] == 20
+
+    store.close()
