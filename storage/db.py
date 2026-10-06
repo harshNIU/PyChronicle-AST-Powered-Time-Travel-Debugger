@@ -22,6 +22,15 @@ def _create_connection() -> sqlite3.Connection:
     return connection
 
 
+def _release_connection(connection: sqlite3.Connection) -> None:
+    """Return a connection to the pool or close it when the pool is full."""
+    # Keep only a small number of idle connections for reuse.
+    if len(_CONNECTION_POOL) < _MAX_POOL_SIZE:
+        _CONNECTION_POOL.append(connection)
+    else:
+        connection.close()
+
+
 @contextmanager
 def get_connection():
     """Provide a reusable database connection and return it to the pool."""
@@ -38,11 +47,7 @@ def get_connection():
         connection.rollback()
         raise
     finally:
-        # Keep only a small number of idle connections for reuse.
-        if len(_CONNECTION_POOL) < _MAX_POOL_SIZE:
-            _CONNECTION_POOL.append(connection)
-        else:
-            connection.close()
+        _release_connection(connection)
 
 
 def init_db() -> None:
