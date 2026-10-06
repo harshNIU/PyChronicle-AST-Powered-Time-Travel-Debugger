@@ -26,6 +26,7 @@ Thumbs.db
 # Local files
 README.local.md
 
+timeline.db
 # Environment variables
 .env
 
