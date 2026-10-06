@@ -24,6 +24,7 @@ class TraceStore:
 
     def __init__(self, database: str | Path = ":memory:") -> None:
         self.connection = sqlite3.connect(str(database))
+        self.connection.execute("PRAGMA foreign_keys = ON")
         self.connection.row_factory = sqlite3.Row
         self._last: dict[tuple[str, str], str] = {}
         self._create_schema()

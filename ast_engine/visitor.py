@@ -1,4 +1,4 @@
-"""AST visitor for collecting variable assignment nodes."""
+"""AST visitor utilities for collecting variable assignment information."""
 
 import ast
 from dataclasses import dataclass
@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class AssignmentInfo:
-    """Information about a variable assignment."""
+    """Describe the location, target, and AST type of a variable assignment."""
 
     line_number: int
     column_offset: int
@@ -15,7 +15,7 @@ class AssignmentInfo:
 
 
 class AssignmentVisitor(ast.NodeVisitor):
-    """Visit an AST and collect variable assignment information."""
+    """Traverse an AST and collect information about variable assignments."""
 
     def __init__(self) -> None:
         self.assignments: list[AssignmentInfo] = []
@@ -79,7 +79,7 @@ class AssignmentVisitor(ast.NodeVisitor):
 
 
 def list_assignments(tree: ast.AST) -> list[AssignmentInfo]:
-    """Return all variable assignments found in an AST."""
+    """Return assignment information collected from the entire AST."""
 
     visitor = AssignmentVisitor()
     visitor.visit(tree)
